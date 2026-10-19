@@ -27,6 +27,7 @@ interface SettingsRepository {
 
     fun getTheme(): Theme
     fun getFastForwardSpeedMultiplier(): Float
+    fun getFastForwardButtonSpeedMultiplier(slot: Int): Float
     fun getFrameLimitSpeedMultiplier(): Float
 
     fun getFrameskipConfiguration(): FrameskipConfiguration

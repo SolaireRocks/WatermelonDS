@@ -6,7 +6,12 @@ import me.magnum.melonds.common.vibration.TouchVibrator
 import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.layout.VirtualButtonMode
 
-class SingleButtonInputHandler(inputListener: IInputListener, private val input: Input, enableHapticFeedback: Boolean, touchVibrator: TouchVibrator, private val mode: VirtualButtonMode = VirtualButtonMode.NORMAL) : FeedbackInputHandler(inputListener, enableHapticFeedback, touchVibrator) {
+/**
+ * Handles a virtual button that drives one or more inputs at the same time (more than one input is used by multi-button combos).
+ */
+class SingleButtonInputHandler(inputListener: IInputListener, private val inputs: List<Input>, enableHapticFeedback: Boolean, touchVibrator: TouchVibrator, private val mode: VirtualButtonMode = VirtualButtonMode.NORMAL) : FeedbackInputHandler(inputListener, enableHapticFeedback, touchVibrator) {
+    constructor(inputListener: IInputListener, input: Input, enableHapticFeedback: Boolean, touchVibrator: TouchVibrator, mode: VirtualButtonMode = VirtualButtonMode.NORMAL) : this(inputListener, listOf(input), enableHapticFeedback, touchVibrator, mode)
+
     private var pressed = false
     private var touchDown = false
     private var activeView: View? = null
@@ -52,6 +57,6 @@ class SingleButtonInputHandler(inputListener: IInputListener, private val input:
         if (pressed == value) return
         pressed = value
         view.isPressed = value
-        if (value) inputListener.onKeyPress(input) else inputListener.onKeyReleased(input)
+        inputs.forEach { if (value) inputListener.onKeyPress(it) else inputListener.onKeyReleased(it) }
     }
 }

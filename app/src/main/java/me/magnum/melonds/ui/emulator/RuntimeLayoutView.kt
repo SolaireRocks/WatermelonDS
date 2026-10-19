@@ -9,8 +9,10 @@ import me.magnum.melonds.common.vibration.TouchVibrator
 import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.input.SoftInputBehaviour
 import me.magnum.melonds.domain.model.layout.LayoutComponent
+import me.magnum.melonds.domain.model.layout.VirtualButtonMode
 import me.magnum.melonds.ui.common.LayoutView
 import me.magnum.melonds.ui.emulator.input.ButtonsInputHandler
+import me.magnum.melonds.ui.emulator.input.DiagonalDpadInputHandler
 import me.magnum.melonds.ui.emulator.input.DpadInputHandler
 import me.magnum.melonds.ui.emulator.input.FrontendInputHandler
 import me.magnum.melonds.ui.emulator.input.HybridScreenTouchscreenInputHandler
@@ -40,6 +42,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
     private var slot2AnalogInput: Slot2AnalogInput? = null
     private var slot2AnalogHandler: Slot2AnalogInputHandler? = null
     private val virtualButtonInputs = mutableMapOf<LayoutComponent, SingleButtonInputHandler>()
+    private var diagonalDpadHandler: DiagonalDpadInputHandler? = null
 
     fun setSlot2AnalogInput(input: Slot2AnalogInput) {
         releaseVirtualButtonInputs()
@@ -94,6 +97,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         releaseVirtualButtonInputs()
         virtualButtonInputs.clear()
         slot2AnalogHandler = null
+        diagonalDpadHandler = null
         val currentRuntimeLayout = currentRuntimeLayout
         if (currentRuntimeLayout == null) {
             isGone = true
@@ -114,10 +118,24 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         val enableHapticFeedback = currentRuntimeLayout.isHapticFeedbackEnabled
         systemInputHandler?.let {
             getLayoutComponentView(LayoutComponent.DPAD)?.view?.setOnTouchListener(DpadInputHandler(it, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.DPAD_DIAGONAL)?.view?.let { view ->
+                DiagonalDpadInputHandler(it, enableHapticFeedback, touchVibrator).also { handler ->
+                    diagonalDpadHandler = handler
+                    view.setOnTouchListener(handler)
+                }
+            }
             getLayoutComponentView(LayoutComponent.BUTTONS)?.view?.setOnTouchListener(ButtonsInputHandler(it, enableHapticFeedback, touchVibrator))
             for (component in listOf(LayoutComponent.BUTTON_A, LayoutComponent.BUTTON_B, LayoutComponent.BUTTON_X, LayoutComponent.BUTTON_Y)) {
                 val componentView = getLayoutComponentView(component) ?: continue
                 val handler = SingleButtonInputHandler(it, component.matchingInputs.single(), enableHapticFeedback, touchVibrator, componentView.buttonMode)
+                virtualButtonInputs[component] = handler
+                componentView.view.setOnTouchListener(handler)
+            }
+            for (component in LayoutComponent.entries.filter { c -> c.isTurboButton() || c.isComboButton() }) {
+                val componentView = getLayoutComponentView(component) ?: continue
+                // Turbo buttons always pulse while held; combo buttons press all of their inputs together
+                val mode = if (component.isTurboButton()) VirtualButtonMode.TURBO else VirtualButtonMode.NORMAL
+                val handler = SingleButtonInputHandler(it, component.matchingInputs, enableHapticFeedback, touchVibrator, mode)
                 virtualButtonInputs[component] = handler
                 componentView.view.setOnTouchListener(handler)
             }
@@ -131,6 +149,9 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
             getLayoutComponentView(LayoutComponent.BUTTON_RESET)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.RESET, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_PAUSE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PAUSE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_1)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD_1, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_2)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD_2, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_3)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD_3, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_MICROPHONE_TOGGLE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.MICROPHONE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.TOGGLE_SOFT_INPUT, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_SWAP_SCREENS)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.SWAP_SCREENS, enableHapticFeedback, touchVibrator))
@@ -165,6 +186,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
 
     fun releaseVirtualButtonInputs() {
         slot2AnalogHandler?.release()
+        diagonalDpadHandler?.release()
         virtualButtonInputs.values.forEach { it.release() }
     }
 
@@ -172,6 +194,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         releaseVirtualButtonInputs()
         virtualButtonInputs.clear()
         slot2AnalogHandler = null
+        diagonalDpadHandler = null
         super.destroyLayout()
     }
 
@@ -193,13 +216,18 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
                         LayoutComponent.BUTTON_B,
                         LayoutComponent.BUTTON_X,
                         LayoutComponent.BUTTON_Y,
+                        LayoutComponent.BUTTON_A_TURBO,
+                        LayoutComponent.BUTTON_B_TURBO,
+                        LayoutComponent.BUTTON_X_TURBO,
+                        LayoutComponent.BUTTON_Y_TURBO,
                         LayoutComponent.SLOT2_ANALOG,
                         LayoutComponent.DPAD,
+                        LayoutComponent.DPAD_DIAGONAL,
                         LayoutComponent.BUTTON_L,
                         LayoutComponent.BUTTON_R,
                         LayoutComponent.BUTTON_START,
                         LayoutComponent.BUTTON_SELECT
-                    )
+                    ) + LayoutComponent.entries.filter { it.isComboButton() }
                 }
             }
             SoftInputBehaviour.HIDE_ALL_BUTTONS_ASSIGNED_TO_CONNECTED_CONTROLLERS -> when(currentConnectedControllersState) {
@@ -230,6 +258,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         hiddenComponents.forEach { component ->
             if (!component.isScreen()) {
                 if (component == LayoutComponent.SLOT2_ANALOG) slot2AnalogHandler?.release()
+                if (component == LayoutComponent.DPAD_DIAGONAL) diagonalDpadHandler?.release()
                 virtualButtonInputs[component]?.release()
                 getLayoutComponentView(component)?.view?.isVisible = false
             }

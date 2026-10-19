@@ -6,15 +6,24 @@ import android.widget.ImageView
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.layout.LayoutComponent
 import me.magnum.melonds.ui.common.LayoutComponentViewBuilder
+import me.magnum.melonds.utils.getShortInputLabel
 
 class SingleButtonLayoutComponentViewBuilder(private val layoutComponent: LayoutComponent) : LayoutComponentViewBuilder() {
     override fun build(context: Context): View {
         return ImageView(context).apply {
-            setImageResource(getInputDrawable())
+            if (layoutComponent.isComboButton()) {
+                setImageDrawable(ComboButtonDrawable(context, getComboLabel(context)))
+            } else {
+                setImageResource(getInputDrawable())
+            }
         }
     }
 
     override fun getAspectRatio() = 1f
+
+    private fun getComboLabel(context: Context): String {
+        return layoutComponent.matchingInputs.joinToString("+") { getShortInputLabel(context.resources, it) }
+    }
 
     private fun getInputDrawable(): Int {
         return when (layoutComponent) {
@@ -22,6 +31,14 @@ class SingleButtonLayoutComponentViewBuilder(private val layoutComponent: Layout
             LayoutComponent.BUTTON_B -> R.drawable.button_b
             LayoutComponent.BUTTON_X -> R.drawable.button_x
             LayoutComponent.BUTTON_Y -> R.drawable.button_y
+            LayoutComponent.BUTTON_A_TURBO -> R.drawable.button_a_turbo
+            LayoutComponent.BUTTON_B_TURBO -> R.drawable.button_b_turbo
+            LayoutComponent.BUTTON_X_TURBO -> R.drawable.button_x_turbo
+            LayoutComponent.BUTTON_Y_TURBO -> R.drawable.button_y_turbo
+            LayoutComponent.DPAD_DIAGONAL -> R.drawable.dpad_diagonal
+            LayoutComponent.BUTTON_FAST_FORWARD_1 -> R.drawable.button_fast_forward_1
+            LayoutComponent.BUTTON_FAST_FORWARD_2 -> R.drawable.button_fast_forward_2
+            LayoutComponent.BUTTON_FAST_FORWARD_3 -> R.drawable.button_fast_forward_3
             LayoutComponent.BUTTON_L -> R.drawable.button_l
             LayoutComponent.BUTTON_R -> R.drawable.button_r
             LayoutComponent.BUTTON_START -> R.drawable.button_start

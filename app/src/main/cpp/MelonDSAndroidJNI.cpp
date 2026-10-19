@@ -82,6 +82,9 @@ int observedFrames = 0;
 std::atomic<float> fps{0.0f};
 std::atomic_int targetFps{60};
 std::atomic<float> fastForwardSpeedMultiplier{0.0f};
+// Speed requested by a fast-forward speed button; takes precedence over fastForwardSpeedMultiplier while hasFastForwardSpeedOverride is set.
+std::atomic<float> fastForwardSpeedOverride{0.0f};
+std::atomic_bool hasFastForwardSpeedOverride{false};
 std::atomic<float> frameLimitSpeedMultiplier{1.0f};
 
 std::atomic<int> frameskipMode{2};
@@ -900,10 +903,17 @@ double audioOutputSpeedHintForMultiplier(float multiplier)
     return value * 60.0 / ndsFramesPerSecond;
 }
 
+float effectiveFastForwardSpeedMultiplier()
+{
+    if (hasFastForwardSpeedOverride.load(std::memory_order_acquire))
+        return fastForwardSpeedOverride.load(std::memory_order_acquire);
+    return fastForwardSpeedMultiplier.load(std::memory_order_acquire);
+}
+
 double currentAudioOutputSpeedHint()
 {
     const float multiplier = isFastForwardEnabled.load(std::memory_order_acquire)
-        ? fastForwardSpeedMultiplier.load(std::memory_order_acquire)
+        ? effectiveFastForwardSpeedMultiplier()
         : frameLimitSpeedMultiplier.load(std::memory_order_acquire);
     return audioOutputSpeedHintForMultiplier(multiplier);
 }
@@ -916,7 +926,7 @@ void publishCurrentAudioOutputSpeedHint()
 int64_t currentPerformanceHintTargetNs()
 {
     if (isFastForwardEnabled.load(std::memory_order_acquire)) {
-        const float multiplier = fastForwardSpeedMultiplier.load(std::memory_order_acquire);
+        const float multiplier = effectiveFastForwardSpeedMultiplier();
         if (multiplier > 0)
             return static_cast<int64_t>(FRAME_DURATION_60FPS_NS / multiplier);
         return FRAME_DURATION_1000FPS_NS;
@@ -1539,6 +1549,7 @@ Java_me_magnum_melonds_MelonEmulator_startEmulation(JNIEnv* env, jobject thiz, j
     limitFps = true;
     targetFps = targetFpsForFrameLimit();
     isFastForwardEnabled.store(false, std::memory_order_release);
+    hasFastForwardSpeedOverride.store(false, std::memory_order_release);
     MelonDSAndroid::setFastForwardActive(false);
     paused = startPaused == JNI_TRUE;
 
@@ -2952,6 +2963,13 @@ Java_me_magnum_melonds_MelonEmulator_setSlot2AnalogInput(JNIEnv* env, jobject th
 }
 
 JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setFastForwardSpeedOverride(JNIEnv* env, jobject thiz, jfloat multiplier, jboolean hasOverride)
+{
+    fastForwardSpeedOverride.store(multiplier, std::memory_order_release);
+    hasFastForwardSpeedOverride.store(hasOverride == JNI_TRUE, std::memory_order_release);
+}
+
+JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setFastForwardEnabled(JNIEnv* env, jobject thiz, jboolean enabled)
 {
     const bool fastForwardEnabled = enabled == JNI_TRUE;
@@ -2960,7 +2978,7 @@ Java_me_magnum_melonds_MelonEmulator_setFastForwardEnabled(JNIEnv* env, jobject 
         std::memory_order_acq_rel);
     MelonDSAndroid::setFastForwardActive(fastForwardEnabled);
     if (fastForwardEnabled) {
-        const float multiplier = fastForwardSpeedMultiplier.load(std::memory_order_acquire);
+        const float multiplier = effectiveFastForwardSpeedMultiplier();
         limitFps = multiplier > 0;
         targetFps = static_cast<int>(60.0f * multiplier);
     } else {
@@ -3045,7 +3063,7 @@ Java_me_magnum_melonds_MelonEmulator_updateEmulatorConfiguration(JNIEnv* env, jo
     MelonDSAndroid::updateEmulatorConfiguration(std::make_unique<MelonDSAndroid::EmulatorConfiguration>(std::move(newConfiguration)));
 
     if (isFastForwardEnabled.load(std::memory_order_acquire)) {
-        const float multiplier = fastForwardSpeedMultiplier.load(std::memory_order_acquire);
+        const float multiplier = effectiveFastForwardSpeedMultiplier();
         limitFps = multiplier > 0;
         targetFps = static_cast<int>(60.0f * multiplier);
     } else {

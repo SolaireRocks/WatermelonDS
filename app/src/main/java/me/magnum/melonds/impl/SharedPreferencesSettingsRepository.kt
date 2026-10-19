@@ -395,6 +395,16 @@ class SharedPreferencesSettingsRepository(
         return speedMultiplierPreference.toFloatOrNull() ?: -1.0f
     }
 
+    override fun getFastForwardButtonSpeedMultiplier(slot: Int): Float {
+        val defaultSpeed = when (slot) {
+            1 -> "2"
+            2 -> "4"
+            else -> "8"
+        }
+        val speedMultiplierPreference = preferences.getString("fast_forward_button_speed_$slot", defaultSpeed)!!
+        return speedMultiplierPreference.toFloatOrNull() ?: defaultSpeed.toFloat()
+    }
+
     private fun getFrameskipMode(): FrameskipMode {
         return FrameskipMode.fromPreferenceValue(preferences.getString("frameskip_mode", FrameskipMode.AUTO.preferenceValue))
     }

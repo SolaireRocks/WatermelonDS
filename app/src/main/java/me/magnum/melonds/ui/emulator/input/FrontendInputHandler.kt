@@ -8,6 +8,9 @@ abstract class FrontendInputHandler : IInputListener {
         when (key) {
             Input.PAUSE -> onPausePressed()
             Input.FAST_FORWARD -> onFastForwardPressed()
+            Input.FAST_FORWARD_1 -> onFastForwardSlotPressed(1)
+            Input.FAST_FORWARD_2 -> onFastForwardSlotPressed(2)
+            Input.FAST_FORWARD_3 -> onFastForwardSlotPressed(3)
             Input.HOLD_FAST_FORWARD -> onFastForwardHoldPressed()
             Input.MICROPHONE -> onMicrophonePressed()
             Input.TOGGLE_SOFT_INPUT -> onSoftInputTogglePressed()
@@ -35,6 +38,7 @@ abstract class FrontendInputHandler : IInputListener {
 
     abstract fun onPausePressed()
     abstract fun onFastForwardPressed()
+    abstract fun onFastForwardSlotPressed(slot: Int)
     abstract fun onFastForwardHoldPressed()
     abstract fun onFastForwardHoldReleased()
     abstract fun onMicrophonePressed()

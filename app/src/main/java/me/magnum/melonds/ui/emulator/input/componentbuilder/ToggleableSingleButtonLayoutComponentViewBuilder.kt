@@ -22,6 +22,9 @@ class ToggleableSingleButtonLayoutComponentViewBuilder(private val layoutCompone
     private fun getToggleableImageViewDrawables(): Pair<Int?, Int?> {
         return when (layoutComponent) {
             LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE -> R.drawable.button_fast_forward to R.drawable.button_fast_forward_disabled
+            LayoutComponent.BUTTON_FAST_FORWARD_1 -> R.drawable.button_fast_forward_1 to R.drawable.button_fast_forward_1_disabled
+            LayoutComponent.BUTTON_FAST_FORWARD_2 -> R.drawable.button_fast_forward_2 to R.drawable.button_fast_forward_2_disabled
+            LayoutComponent.BUTTON_FAST_FORWARD_3 -> R.drawable.button_fast_forward_3 to R.drawable.button_fast_forward_3_disabled
             LayoutComponent.BUTTON_MICROPHONE_TOGGLE -> R.drawable.button_microphone to R.drawable.button_microphone_disabled
             LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT -> R.drawable.ic_touch_enabled to R.drawable.ic_touch_disabled
             else -> null to null

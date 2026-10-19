@@ -22,6 +22,33 @@
             android:defaultValue="-1" />
 
     <ListPreference
+            android:key="fast_forward_button_speed_1"
+            android:title="@string/fast_forward_button_speed_1"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/fast_forward_button_speed_options"
+            android:entryValues="@array/fast_forward_button_speed_values"
+            android:defaultValue="2" />
+
+    <ListPreference
+            android:key="fast_forward_button_speed_2"
+            android:title="@string/fast_forward_button_speed_2"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/fast_forward_button_speed_options"
+            android:entryValues="@array/fast_forward_button_speed_values"
+            android:defaultValue="4" />
+
+    <ListPreference
+            android:key="fast_forward_button_speed_3"
+            android:title="@string/fast_forward_button_speed_3"
+            android:summary="%s"
+            app:iconSpaceReserved="false"
+            android:entries="@array/fast_forward_button_speed_options"
+            android:entryValues="@array/fast_forward_button_speed_values"
+            android:defaultValue="8" />
+
+    <ListPreference
             android:key="frame_limit_speed_multiplier"
             android:title="@string/frame_limit_speed"
             android:summary="%s"

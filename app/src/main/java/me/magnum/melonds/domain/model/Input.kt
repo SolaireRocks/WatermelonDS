@@ -36,7 +36,10 @@ enum class Input(val keyCode: Int) {
     HOLD_FAST_FORWARD(-1),
     CYCLE_LAYOUT(-1),
     EXIT_GAME(-1),
-    SCREENSHOT(-1);
+    SCREENSHOT(-1),
+    FAST_FORWARD_1(-1),
+    FAST_FORWARD_2(-1),
+    FAST_FORWARD_3(-1);
 
     val isSystemInput: Boolean
         get() = keyCode != -1

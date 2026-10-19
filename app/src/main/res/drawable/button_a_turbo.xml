@@ -1,0 +1,7 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
+    <path android:fillColor="@color/turbo_button_outline" android:pathData="M32,0.5A31.5,31.5 0,1 1,32,63.5A31.5,31.5 0,1 1,32,0.5Z" />
+    <path android:fillColor="@color/face_button_fill" android:pathData="M32,4A28,28 0,1 1,32,60A28,28 0,1 1,32,4Z" />
+    <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
+        android:pathData="M27,14L37,14L51,50L41,50L38,41L26,41L23,50L13,50ZM29,33L35,33L32,23Z" />
+</vector>

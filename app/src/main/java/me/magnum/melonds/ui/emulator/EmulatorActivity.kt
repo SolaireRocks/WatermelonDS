@@ -279,6 +279,8 @@ class EmulatorActivity : AppCompatActivity() {
         var fastForwardEnabled = false
             private set
         private var fastForwardHoldPressed = false
+        // The fast-forward speed button (1-3) that is currently active, if any
+        private var activeFastForwardSlot: Int? = null
         var microphoneEnabled = true
             private set
 
@@ -296,9 +298,37 @@ class EmulatorActivity : AppCompatActivity() {
                 return
             }
             fastForwardEnabled = !fastForwardEnabled
-            binding.viewLayoutControls.setLayoutComponentToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, fastForwardEnabled)
-            presentation?.layoutView?.setLayoutComponentToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, fastForwardEnabled)
+            // The generic toggle and the speed buttons are mutually exclusive
+            activeFastForwardSlot = null
+            syncFastForwardToggles()
             updateFastForwardState()
+        }
+
+        override fun onFastForwardSlotPressed(slot: Int) {
+            if (!viewModel.onFastForwardToggleRequested()) {
+                return
+            }
+            fastForwardEnabled = false
+            activeFastForwardSlot = slot.takeIf { it != activeFastForwardSlot }
+            syncFastForwardToggles()
+            updateFastForwardState()
+        }
+
+        /**
+         * Applies the current fast-forward toggle states to a layout view that was just (re)created.
+         */
+        fun syncFastForwardToggles(setToggleState: (LayoutComponent, Boolean) -> Unit) {
+            setToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, fastForwardEnabled)
+            setToggleState(LayoutComponent.BUTTON_FAST_FORWARD_1, activeFastForwardSlot == 1)
+            setToggleState(LayoutComponent.BUTTON_FAST_FORWARD_2, activeFastForwardSlot == 2)
+            setToggleState(LayoutComponent.BUTTON_FAST_FORWARD_3, activeFastForwardSlot == 3)
+        }
+
+        private fun syncFastForwardToggles() {
+            syncFastForwardToggles { component, enabled -> binding.viewLayoutControls.setLayoutComponentToggleState(component, enabled) }
+            presentation?.layoutView?.let { layoutView ->
+                syncFastForwardToggles { component, enabled -> layoutView.setLayoutComponentToggleState(component, enabled) }
+            }
         }
 
         override fun onFastForwardHoldPressed() {
@@ -365,7 +395,9 @@ class EmulatorActivity : AppCompatActivity() {
         }
 
         private fun updateFastForwardState() {
-            MelonEmulator.setFastForwardEnabled(fastForwardEnabled || fastForwardHoldPressed)
+            val speedOverride = activeFastForwardSlot?.let { settingsRepository.getFastForwardButtonSpeedMultiplier(it) }
+            MelonEmulator.setFastForwardSpeedOverride(speedOverride ?: 0f, speedOverride != null)
+            MelonEmulator.setFastForwardEnabled(fastForwardEnabled || fastForwardHoldPressed || activeFastForwardSlot != null)
         }
     }
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -1587,7 +1619,7 @@ class EmulatorActivity : AppCompatActivity() {
                         updateLayout(it)
                     }
 
-                    setLayoutComponentToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, frontendInputHandler.fastForwardEnabled)
+                    frontendInputHandler.syncFastForwardToggles { component, enabled -> setLayoutComponentToggleState(component, enabled) }
                     setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
                     setConnectedControllersState(connectedControllerManager.controllersState.value)
                 }
@@ -1755,12 +1787,12 @@ class EmulatorActivity : AppCompatActivity() {
             setLayoutOrientation(layoutConfiguration.layoutOrientation)
             with(binding.viewLayoutControls) {
                 instantiateLayout(layoutConfiguration, LayoutTarget.MAIN_SCREEN)
-                setLayoutComponentToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, frontendInputHandler.fastForwardEnabled)
+                frontendInputHandler.syncFastForwardToggles { component, enabled -> setLayoutComponentToggleState(component, enabled) }
                 setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
             }
             presentation?.apply {
                 updateLayout(layoutConfiguration)
-                layoutView.setLayoutComponentToggleState(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE, frontendInputHandler.fastForwardEnabled)
+                frontendInputHandler.syncFastForwardToggles { component, enabled -> layoutView.setLayoutComponentToggleState(component, enabled) }
                 layoutView.setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
             }
 

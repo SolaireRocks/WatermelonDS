@@ -31,6 +31,7 @@ import com.squareup.picasso.Callback
 import com.squareup.picasso.Picasso
 import me.magnum.melonds.R
 import me.magnum.melonds.databinding.ViewLayoutEditorManagerBinding
+import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.RuntimeBackground
 import me.magnum.melonds.domain.model.consoleAspectRatio
 import me.magnum.melonds.domain.model.layout.LayoutComponent
@@ -50,6 +51,7 @@ import me.magnum.melonds.ui.layouteditor.ui.LayoutComponentPositionDialog
 import me.magnum.melonds.ui.layouteditor.ui.LayoutComponentPropertyValueDialog
 import me.magnum.melonds.ui.layouteditor.ui.LayoutPropertiesDialog
 import me.magnum.melonds.ui.theme.MelonTheme
+import me.magnum.melonds.utils.getInputName
 import me.magnum.melonds.utils.getLayoutComponentName
 import java.util.UUID
 import kotlin.math.min
@@ -711,11 +713,8 @@ class LayoutEditorManagerView(
     private fun openButtonsMenu() {
         hideBottomControls()
         val instantiatedComponents = binding.viewLayoutEditor.getInstantiatedComponents()
-        val componentsToShow = LayoutComponent.entries.filter { candidate ->
-            candidate !in instantiatedComponents && instantiatedComponents.none { current ->
-                current.matchingInputs.any { it in candidate.matchingInputs }
-            }
-        }
+        // Combos aren't listed individually. They are created through the multi-button entry, which asks which two buttons to combine
+        val componentsToShow = LayoutComponent.entries.filter { !it.isComboButton() && canAddComponent(it, instantiatedComponents) }
 
         val themedContext = android.view.ContextThemeWrapper(context, R.style.AppTheme)
         val dialogBuilder = AlertDialog.Builder(themedContext)
@@ -724,16 +723,57 @@ class LayoutEditorManagerView(
                 dialog.cancel()
             }
 
-        if (componentsToShow.isNotEmpty()) {
-            dialogBuilder.setItems(componentsToShow.map { resources.getString(getLayoutComponentName(it)) }.toTypedArray()) { _, which ->
-                val component = componentsToShow[which]
-                binding.viewLayoutEditor.addLayoutComponent(component)
+        val itemNames = componentsToShow.map { getLayoutComponentName(resources, it) } + resources.getString(R.string.add_multi_button)
+        dialogBuilder.setItems(itemNames.toTypedArray()) { _, which ->
+            if (which == componentsToShow.size) {
+                openComboButtonPicker()
+            } else {
+                binding.viewLayoutEditor.addLayoutComponent(componentsToShow[which])
             }
-        } else {
-            dialogBuilder.setMessage(R.string.no_more_components)
         }
 
         dialogBuilder.showInCurrentWindow()
+    }
+
+    /**
+     * Components that map to the same inputs as an existing one can only be added if they are explicitly allowed to share inputs (turbo and combo buttons).
+     */
+    private fun canAddComponent(candidate: LayoutComponent, instantiatedComponents: List<LayoutComponent>): Boolean {
+        if (candidate in instantiatedComponents) return false
+        if (candidate.allowsSharedInputs) return true
+
+        return instantiatedComponents.none { current ->
+            !current.allowsSharedInputs && current.matchingInputs.any { it in candidate.matchingInputs }
+        }
+    }
+
+    private fun openComboButtonPicker() {
+        val inputs = LayoutComponent.COMBO_BUTTON_INPUTS
+        val themedContext = android.view.ContextThemeWrapper(context, R.style.AppTheme)
+        AlertDialog.Builder(themedContext)
+            .setTitle(R.string.combo_choose_first_button)
+            .setItems(inputs.map { getInputName(resources, it) }.toTypedArray()) { _, firstIndex ->
+                val firstInput = inputs[firstIndex]
+                val remainingInputs = inputs.filter { it != firstInput }
+                AlertDialog.Builder(themedContext)
+                    .setTitle(R.string.combo_choose_second_button)
+                    .setItems(remainingInputs.map { getInputName(resources, it) }.toTypedArray()) { _, secondIndex ->
+                        addComboButton(firstInput, remainingInputs[secondIndex])
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .showInCurrentWindow()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .showInCurrentWindow()
+    }
+
+    private fun addComboButton(first: Input, second: Input) {
+        val component = LayoutComponent.comboOf(first, second) ?: return
+        if (component in binding.viewLayoutEditor.getInstantiatedComponents()) {
+            Toast.makeText(context, R.string.combo_already_added, Toast.LENGTH_SHORT).show()
+        } else {
+            binding.viewLayoutEditor.addLayoutComponent(component)
+        }
     }
 
     private fun openMenu() {

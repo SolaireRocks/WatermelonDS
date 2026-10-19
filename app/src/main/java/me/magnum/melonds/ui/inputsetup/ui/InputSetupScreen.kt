@@ -509,6 +509,9 @@ private fun getInputName(input: Input): String? {
         Input.PAUSE -> R.string.input_pause
         Input.FAST_FORWARD -> R.string.input_fast_forward
         Input.HOLD_FAST_FORWARD -> R.string.input_hold_fast_forward
+        Input.FAST_FORWARD_1 -> R.string.input_fast_forward_1
+        Input.FAST_FORWARD_2 -> R.string.input_fast_forward_2
+        Input.FAST_FORWARD_3 -> R.string.input_fast_forward_3
         Input.MICROPHONE -> R.string.input_microphone
         Input.RESET -> R.string.input_reset
         Input.SWAP_SCREENS -> R.string.input_swap_screens

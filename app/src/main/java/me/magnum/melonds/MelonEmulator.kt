@@ -311,6 +311,11 @@ object MelonEmulator {
 
     external fun isFastForwardEnabled(): Boolean
 
+    /**
+     * Overrides the fast-forward speed multiplier set in the settings while fast-forward is active. When [hasOverride] is false, the configured speed is used.
+     */
+    external fun setFastForwardSpeedOverride(multiplier: Float, hasOverride: Boolean)
+
     external fun setFrameLimitSpeedMultiplier(multiplier: Float)
 
     external fun setFrameskipMode(mode: Int, manualValue: Int)
