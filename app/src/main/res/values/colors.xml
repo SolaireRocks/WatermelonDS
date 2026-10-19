@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="colorPrimary">#e8392c</color>
-    <color name="face_button_fill">#808080</color>
     <color name="turbo_button_outline">#FFB300</color>
     <color name="colorPrimaryDark">#f4f3f0</color>
     <color name="colorAccent">@color/melonMain</color>

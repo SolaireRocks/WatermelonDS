@@ -14,8 +14,10 @@ import me.magnum.melonds.R
  * Draws a round button with a short text label, used for multi-button combos (e.g. "A+B").
  */
 class ComboButtonDrawable(context: Context, private val label: String) : Drawable() {
+    // Same color state list as the face buttons, so the combo button highlights while pressed
+    private val fillColors = ContextCompat.getColorStateList(context, R.color.face_button_fill)!!
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.face_button_fill)
+        color = fillColors.defaultColor
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFFFFFFF.toInt()
@@ -39,6 +41,16 @@ class ComboButtonDrawable(context: Context, private val label: String) : Drawabl
         }
         val textCenterOffset = (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText(label, centerX, centerY - textCenterOffset, textPaint)
+    }
+
+    override fun isStateful() = true
+
+    override fun onStateChange(state: IntArray): Boolean {
+        val newColor = fillColors.getColorForState(state, fillColors.defaultColor)
+        if (newColor == fillPaint.color) return false
+        fillPaint.color = newColor
+        invalidateSelf()
+        return true
     }
 
     override fun setAlpha(alpha: Int) {
