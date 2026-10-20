@@ -597,7 +597,7 @@
     <string name="input_fast_forward_1">Fast Forward 1 (Toggle)</string>
     <string name="input_fast_forward_2">Fast Forward 2 (Toggle)</string>
     <string name="input_fast_forward_3">Fast Forward 3 (Toggle)</string>
-    <string name="add_multi_button">Multi-button (press two at once)…</string>
+    <string name="add_multi_button">Multi-button (press two at once)â€¦</string>
     <string name="combo_choose_first_button">First button</string>
     <string name="combo_choose_second_button">Second button</string>
     <string name="combo_already_added">That button combination is already in the layout</string>
@@ -606,6 +606,7 @@
     <string name="fast_forward_button_speed_3">Fast-forward button 3 speed</string>
     <string name="input_abxy_buttons">ABXY Buttons</string>
     <string name="input_swap_screens">Swap Screens</string>
+    <string name="input_menu">Menu</string>
     <string name="input_quick_save">Quick Save</string>
     <string name="input_quick_load">Quick Load</string>
 

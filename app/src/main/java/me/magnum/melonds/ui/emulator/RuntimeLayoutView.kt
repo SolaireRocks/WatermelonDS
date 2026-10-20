@@ -148,6 +148,7 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
         frontendInputHandler?.let {
             getLayoutComponentView(LayoutComponent.BUTTON_RESET)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.RESET, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_PAUSE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PAUSE, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_MENU)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.PAUSE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_1)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD_1, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_FAST_FORWARD_2)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.FAST_FORWARD_2, enableHapticFeedback, touchVibrator))

@@ -62,6 +62,7 @@ private fun getStaticLayoutComponentName(layoutComponent: LayoutComponent): Int 
         LayoutComponent.BUTTON_SELECT -> R.string.input_select
         LayoutComponent.BUTTON_HINGE -> R.string.input_lid
         LayoutComponent.BUTTON_PAUSE -> R.string.input_pause
+        LayoutComponent.BUTTON_MENU -> R.string.input_menu
         LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE -> R.string.input_fast_forward
         LayoutComponent.BUTTON_MICROPHONE_TOGGLE -> R.string.input_microphone
         LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT -> R.string.input_toggle_soft_input

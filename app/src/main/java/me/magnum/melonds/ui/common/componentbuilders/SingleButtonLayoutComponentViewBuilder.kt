@@ -45,6 +45,7 @@ class SingleButtonLayoutComponentViewBuilder(private val layoutComponent: Layout
             LayoutComponent.BUTTON_SELECT -> R.drawable.button_select
             LayoutComponent.BUTTON_HINGE -> R.drawable.button_toggle_lid
             LayoutComponent.BUTTON_PAUSE -> R.drawable.button_pause
+            LayoutComponent.BUTTON_MENU -> R.drawable.button_menu
             LayoutComponent.BUTTON_FAST_FORWARD_TOGGLE -> R.drawable.button_fast_forward
             LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT -> R.drawable.ic_touch_enabled
             LayoutComponent.BUTTON_RESET -> R.drawable.button_reset

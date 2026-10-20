@@ -3,7 +3,7 @@ package me.magnum.melonds.domain.model.layout
 import me.magnum.melonds.domain.model.Input
 
 /**
- * @param allowsSharedInputs whether this component may coexist in a layout with other components that map to the same inputs (turbo and combo buttons).
+ * @param allowsSharedInputs whether this component may coexist in a layout with other components that map to the same inputs (individual face, turbo, combo and menu buttons).
  */
 enum class LayoutComponent(val matchingInputs: List<Input>, val allowsSharedInputs: Boolean = false) {
     TOP_SCREEN(emptyList()),
@@ -24,15 +24,18 @@ enum class LayoutComponent(val matchingInputs: List<Input>, val allowsSharedInpu
     BUTTON_TOGGLE_SOFT_INPUT(listOf(Input.TOGGLE_SOFT_INPUT)),
     BUTTON_RESET(listOf(Input.RESET)),
     BUTTON_PAUSE(listOf(Input.PAUSE)),
+    // Same action as BUTTON_PAUSE (pausing shows the pause menu) but with a menu icon, so it can sit next to a pause button
+    BUTTON_MENU(listOf(Input.PAUSE), allowsSharedInputs = true),
     BUTTON_SWAP_SCREENS(listOf(Input.SWAP_SCREENS)),
     BUTTON_QUICK_SAVE(listOf(Input.QUICK_SAVE)),
     BUTTON_QUICK_LOAD(listOf(Input.QUICK_LOAD)),
     BUTTON_REWIND(listOf(Input.REWIND)),
     BUTTON_MICROPHONE_TOGGLE(listOf(Input.MICROPHONE)),
-    BUTTON_A(listOf(Input.A)),
-    BUTTON_B(listOf(Input.B)),
-    BUTTON_X(listOf(Input.X)),
-    BUTTON_Y(listOf(Input.Y)),
+    // Individual face buttons can be added alongside the ABXY cluster
+    BUTTON_A(listOf(Input.A), allowsSharedInputs = true),
+    BUTTON_B(listOf(Input.B), allowsSharedInputs = true),
+    BUTTON_X(listOf(Input.X), allowsSharedInputs = true),
+    BUTTON_Y(listOf(Input.Y), allowsSharedInputs = true),
     BUTTON_A_TURBO(listOf(Input.A), allowsSharedInputs = true),
     BUTTON_B_TURBO(listOf(Input.B), allowsSharedInputs = true),
     BUTTON_X_TURBO(listOf(Input.X), allowsSharedInputs = true),
