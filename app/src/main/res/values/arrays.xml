@@ -156,6 +156,18 @@
         <item>8</item>
     </string-array>
 
+    <string-array name="capture_screens_options">
+        <item>Both screens</item>
+        <item>Top screen</item>
+        <item>Bottom screen</item>
+    </string-array>
+
+    <string-array name="capture_screens_values" translatable="false">
+        <item>both</item>
+        <item>top</item>
+        <item>bottom</item>
+    </string-array>
+
     <string-array name="recording_scale_options" translatable="false">
         <item>Original (256x384)</item>
         <item>2x (512x768)</item>

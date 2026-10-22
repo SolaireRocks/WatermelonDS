@@ -36,6 +36,7 @@ import me.magnum.melonds.common.uridelegates.UriHandler
 import me.magnum.melonds.domain.model.AudioBitrate
 import me.magnum.melonds.domain.model.AudioInterpolation
 import me.magnum.melonds.domain.model.AudioLatency
+import me.magnum.melonds.domain.model.CaptureScreens
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.ControllerConfiguration
 import me.magnum.melonds.domain.model.DldiSdCardConfiguration
@@ -1588,12 +1589,32 @@ class SharedPreferencesSettingsRepository(
         return preferences.getString("screenshot_scale", "1")?.toIntOrNull()?.coerceIn(1, 8) ?: 1
     }
 
+    override fun getScreenshotScreens(): CaptureScreens {
+        return getEnumPreference("screenshot_screens", CaptureScreens.BOTH)
+    }
+
+    override fun setScreenshotDirectory(directoryUri: Uri) {
+        preferences.edit {
+            putStringSet("screenshot_directory", setOf(directoryUri.toString()))
+        }
+    }
+
     override fun getRecordingDirectory(): Uri? {
         return preferences.getStringSet("recording_directory", null)?.firstOrNull()?.toUri()
     }
 
+    override fun setRecordingDirectory(directoryUri: Uri) {
+        preferences.edit {
+            putStringSet("recording_directory", setOf(directoryUri.toString()))
+        }
+    }
+
     override fun getRecordingScale(): Int {
         return preferences.getString("recording_scale", "2")?.toIntOrNull()?.coerceIn(1, 4) ?: 2
+    }
+
+    override fun getRecordingScreens(): CaptureScreens {
+        return getEnumPreference("recording_screens", CaptureScreens.BOTH)
     }
 
     override fun getRecordingFrameRate(): Int {

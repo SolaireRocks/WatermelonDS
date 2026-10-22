@@ -314,10 +314,13 @@ object MelonEmulator {
     external fun captureRecordingFrame(buffer: ByteBuffer): Boolean
 
     /**
-     * Scales a frame captured with [captureRecordingFrame] to [width]x[height] and writes it as YUV 4:2:0 into the given encoder image planes.
+     * Scales the rows [sourceY] to [sourceY] + [sourceHeight] of a frame captured with [captureRecordingFrame] to [width]x[height] and writes them as
+     * YUV 4:2:0 into the given encoder image planes.
      */
     external fun convertRecordingFrame(
         source: ByteBuffer,
+        sourceY: Int,
+        sourceHeight: Int,
         width: Int,
         height: Int,
         yPlane: ByteBuffer,

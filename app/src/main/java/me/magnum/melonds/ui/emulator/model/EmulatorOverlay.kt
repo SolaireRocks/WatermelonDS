@@ -13,4 +13,5 @@ enum class EmulatorOverlay {
     RA_PENDING_EXIT,
     RA_PENDING_SYNC,
     PRESETS_DIALOG,
+    CAPTURE_FOLDER_DIALOG,
 }

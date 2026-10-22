@@ -70,6 +70,15 @@
                 android:entryValues="@array/screenshot_scale_values"
                 android:defaultValue="1" />
 
+        <ListPreference
+                android:key="screenshot_screens"
+                android:title="@string/screenshot_screens"
+                android:summary="%s"
+                app:iconSpaceReserved="false"
+                android:entries="@array/capture_screens_options"
+                android:entryValues="@array/capture_screens_values"
+                android:defaultValue="both" />
+
         <me.magnum.melonds.ui.settings.preferences.StoragePickerPreference
                 android:key="recording_directory"
                 android:title="@string/recording_directory"
@@ -86,6 +95,15 @@
                 android:entries="@array/recording_scale_options"
                 android:entryValues="@array/recording_scale_values"
                 android:defaultValue="2" />
+
+        <ListPreference
+                android:key="recording_screens"
+                android:title="@string/recording_screens"
+                android:summary="%s"
+                app:iconSpaceReserved="false"
+                android:entries="@array/capture_screens_options"
+                android:entryValues="@array/capture_screens_values"
+                android:defaultValue="both" />
 
         <ListPreference
                 android:key="recording_frame_rate"

@@ -2991,7 +2991,7 @@ Java_me_magnum_melonds_MelonEmulator_captureRecordingFrame(JNIEnv* env, jobject 
 }
 
 JNIEXPORT jboolean JNICALL
-Java_me_magnum_melonds_MelonEmulator_convertRecordingFrame(JNIEnv* env, jobject thiz, jobject source, jint width, jint height,
+Java_me_magnum_melonds_MelonEmulator_convertRecordingFrame(JNIEnv* env, jobject thiz, jobject source, jint sourceY, jint sourceHeight, jint width, jint height,
     jobject yPlane, jint yRowStride, jint yPixelStride,
     jobject uPlane, jint uRowStride, jint uPixelStride,
     jobject vPlane, jint vRowStride, jint vPixelStride)
@@ -3002,11 +3002,14 @@ Java_me_magnum_melonds_MelonEmulator_convertRecordingFrame(JNIEnv* env, jobject 
     auto* v = static_cast<std::uint8_t*>(env->GetDirectBufferAddress(vPlane));
     if (sourcePixels == nullptr || y == nullptr || u == nullptr || v == nullptr || width <= 0 || height <= 0)
         return JNI_FALSE;
+    if (sourceY < 0 || sourceHeight <= 0 || sourceY + sourceHeight > 384)
+        return JNI_FALSE;
     if (env->GetDirectBufferCapacity(source) < static_cast<jlong>(256 * 384 * sizeof(std::uint32_t)))
         return JNI_FALSE;
 
+    // Only the rows of the selected screen(s) are converted
     MelonDSAndroid::GameplayRecording::convertArgbToYuv420(
-        sourcePixels, 256, 384, width, height,
+        sourcePixels + sourceY * 256, 256, sourceHeight, width, height,
         y, yRowStride, yPixelStride,
         u, uRowStride, uPixelStride,
         v, vRowStride, vPixelStride);

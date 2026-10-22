@@ -1,5 +1,6 @@
 package me.magnum.melonds.ui.emulator
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -7,6 +8,7 @@ import android.content.res.Configuration
 import android.graphics.Typeface
 import android.hardware.display.DisplayManager
 import android.hardware.input.InputManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -26,6 +28,7 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,7 +75,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.R
+import me.magnum.melonds.common.DirectoryAccessValidator
+import me.magnum.melonds.common.Permission
 import me.magnum.melonds.common.PermissionHandler
+import me.magnum.melonds.common.UriPermissionManager
+import me.magnum.melonds.common.contracts.DirectoryPickerContract
 import me.magnum.melonds.databinding.ActivityEmulatorBinding
 import me.magnum.melonds.domain.model.ConsoleType
 import me.magnum.melonds.domain.model.ControllerConfiguration
@@ -229,6 +236,12 @@ class EmulatorActivity : AppCompatActivity() {
     @Inject
     lateinit var boxArtRepository: me.magnum.melonds.ui.romlist.boxart.BoxArtRepository
 
+    @Inject
+    lateinit var uriPermissionManager: UriPermissionManager
+
+    @Inject
+    lateinit var directoryAccessValidator: DirectoryAccessValidator
+
     private var presentation: ExternalPresentation? = null
 
     private lateinit var handler: Handler
@@ -379,15 +392,28 @@ class EmulatorActivity : AppCompatActivity() {
         }
 
         override fun onScreenshot() {
-            viewModel.takeScreenshot()
+            if (settingsRepository.getScreenshotDirectory() == null) {
+                showCaptureFolderRequiredDialog(CaptureFolder.SCREENSHOTS)
+            } else {
+                viewModel.takeScreenshot()
+            }
         }
 
         override fun onToggleRecording() {
-            viewModel.toggleRecording()
+            // A recording that is already running is always stopped and saved
+            if (!viewModel.isRecording.value && settingsRepository.getRecordingDirectory() == null) {
+                showCaptureFolderRequiredDialog(CaptureFolder.RECORDINGS)
+            } else {
+                viewModel.toggleRecording()
+            }
         }
 
         override fun onSaveClip() {
-            viewModel.saveClip()
+            if (settingsRepository.getRecordingDirectory() == null) {
+                showCaptureFolderRequiredDialog(CaptureFolder.RECORDINGS)
+            } else {
+                viewModel.saveClip()
+            }
         }
 
         override fun onRewind() {
@@ -444,6 +470,14 @@ class EmulatorActivity : AppCompatActivity() {
         viewModel.onCheatsChanged()
         viewModel.resumeEmulator()
     }
+    private val captureFolderPickerLauncher = registerForActivityResult(DirectoryPickerContract(Permission.READ_WRITE)) { uri ->
+        val folder = pendingCaptureFolder
+        pendingCaptureFolder = null
+        if (uri != null && folder != null) {
+            onCaptureFolderPicked(folder, uri)
+        }
+        closeCaptureFolderOverlay()
+    }
     private val permissionRequestLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         lifecycleScope.launch {
             it.keys.forEach { permission ->
@@ -457,6 +491,10 @@ class EmulatorActivity : AppCompatActivity() {
         }
     }
 
+    private enum class CaptureFolder { SCREENSHOTS, RECORDINGS }
+
+    private var captureFolderDialog: AlertDialog? = null
+    private var pendingCaptureFolder: CaptureFolder? = null
     private var offlineSyncChoiceDialog: AlertDialog? = null
     private var offlineSyncProgressDialog: AlertDialog? = null
     private var hardcorePendingExitDialog: AlertDialog? = null
@@ -4000,6 +4038,82 @@ class EmulatorActivity : AppCompatActivity() {
             saveStatesOverlayState.value = null
             activeOverlays.removeActiveOverlay(EmulatorOverlay.SAVE_STATES_DIALOG)
             presentation?.setInfoOverlayContent(null)
+        }
+    }
+
+    /**
+     * Shown when a screenshot or recording is requested before its folder was chosen. The default app storage folder isn't reachable on every
+     * device, so a folder has to be picked (and access granted) first.
+     */
+    private fun showCaptureFolderRequiredDialog(folder: CaptureFolder) {
+        if (captureFolderDialog != null || pendingCaptureFolder != null) {
+            return
+        }
+        viewModel.pauseEmulator(false)
+        activeOverlays.addActiveOverlay(EmulatorOverlay.CAPTURE_FOLDER_DIALOG)
+        val message = when (folder) {
+            CaptureFolder.SCREENSHOTS -> R.string.capture_folder_required_screenshots
+            CaptureFolder.RECORDINGS -> R.string.capture_folder_required_recordings
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.capture_folder_required_title)
+            .setMessage(message)
+            .setPositiveButton(R.string.choose_folder) { _, _ ->
+                pendingCaptureFolder = folder
+                val initialUri = settingsRepository.getScreenshotDirectory() ?: settingsRepository.getRecordingDirectory()
+                try {
+                    captureFolderPickerLauncher.launch(initialUri)
+                } catch (exception: ActivityNotFoundException) {
+                    pendingCaptureFolder = null
+                    Toast.makeText(this, R.string.system_file_picker_not_found, Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.setOnDismissListener {
+            captureFolderDialog = null
+            // While the folder picker is open the emulator stays paused. The picker result closes the overlay
+            if (pendingCaptureFolder == null) {
+                closeCaptureFolderOverlay()
+            }
+        }
+        captureFolderDialog = dialog
+        dialog.show()
+    }
+
+    private fun onCaptureFolderPicked(folder: CaptureFolder, uri: Uri) {
+        if (directoryAccessValidator.getDirectoryAccessForPermission(uri, Permission.READ_WRITE) != DirectoryAccessValidator.DirectoryAccessResult.OK) {
+            Toast.makeText(this, R.string.capture_folder_not_writable, Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            uriPermissionManager.persistDirectoryPermissions(uri, Permission.READ_WRITE)
+        } catch (exception: SecurityException) {
+            Log.w("CaptureFolder", "Cannot keep access to the selected folder", exception)
+            Toast.makeText(this, R.string.capture_folder_not_writable, Toast.LENGTH_LONG).show()
+            return
+        }
+        // The same folder is used for the other kind of capture if that one wasn't set up either
+        val setScreenshots = folder == CaptureFolder.SCREENSHOTS || settingsRepository.getScreenshotDirectory() == null
+        val setRecordings = folder == CaptureFolder.RECORDINGS || settingsRepository.getRecordingDirectory() == null
+        if (setScreenshots) {
+            settingsRepository.setScreenshotDirectory(uri)
+        }
+        if (setRecordings) {
+            settingsRepository.setRecordingDirectory(uri)
+        }
+        val message = when {
+            setScreenshots && setRecordings -> R.string.capture_folder_set_both
+            setScreenshots -> R.string.capture_folder_set_screenshots
+            else -> R.string.capture_folder_set_recordings
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun closeCaptureFolderOverlay() {
+        activeOverlays.removeActiveOverlay(EmulatorOverlay.CAPTURE_FOLDER_DIALOG)
+        if (!activeOverlays.hasActiveOverlays()) {
+            viewModel.resumeEmulator()
         }
     }
 

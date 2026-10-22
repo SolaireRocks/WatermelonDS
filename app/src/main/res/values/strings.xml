@@ -1182,7 +1182,7 @@
     <string name="wfc_settings_error">The folder must be writable and wfcsettings.bin must be empty or exactly 2304 bytes. Check access and the file before trying again.</string>
     <string name="input_screenshot">Take screenshot</string>
     <string name="screenshot_directory">Screenshot folder</string>
-    <string name="screenshot_directory_default">App storage / screenshots</string>
+    <string name="screenshot_directory_default">Not set. Choose a folder before taking screenshots</string>
     <string name="screenshot_saved">Screenshot saved: %1$s</string>
     <string name="screenshot_failed">Could not save screenshot. Check the folder access and try again while the game is running.</string>
     <string name="input_toggle_recording">Record gameplay</string>
@@ -1196,7 +1196,17 @@
     <string name="screenshots_and_recording">Screenshots and recording</string>
     <string name="screenshot_scale">Screenshot size</string>
     <string name="recording_directory">Recordings folder</string>
-    <string name="recording_directory_default">App storage / recordings</string>
+    <string name="recording_directory_default">Not set. Choose a folder before recording</string>
+    <string name="screenshot_screens">Screenshot screens</string>
+    <string name="recording_screens">Recording screens</string>
+    <string name="capture_folder_required_title">No folder selected</string>
+    <string name="capture_folder_required_screenshots">Choose a folder for your screenshots first. You\'ll be asked to allow access to it, which is needed for screenshots to be saved.</string>
+    <string name="capture_folder_required_recordings">Choose a folder for your recordings and clips first. You\'ll be asked to allow access to it, which is needed for recordings to be saved.</string>
+    <string name="choose_folder">Choose folder</string>
+    <string name="capture_folder_not_writable">Can\'t save to that folder. Choose another one.</string>
+    <string name="capture_folder_set_both">Screenshots and recordings will be saved to this folder. You can change it in Settings.</string>
+    <string name="capture_folder_set_screenshots">Screenshots will be saved to this folder. You can change it in Settings.</string>
+    <string name="capture_folder_set_recordings">Recordings will be saved to this folder. You can change it in Settings.</string>
     <string name="recording_scale">Recording resolution</string>
     <string name="recording_frame_rate">Recording frame rate</string>
     <string name="recording_clip_length">Clip length</string>

@@ -142,8 +142,12 @@ interface SettingsRepository {
     fun getSaveFileDirectory(): Uri?
     fun getScreenshotDirectory(): Uri?
     fun getScreenshotScale(): Int
+    fun getScreenshotScreens(): CaptureScreens
+    fun setScreenshotDirectory(directoryUri: Uri)
     fun getRecordingDirectory(): Uri?
+    fun setRecordingDirectory(directoryUri: Uri)
     fun getRecordingScale(): Int
+    fun getRecordingScreens(): CaptureScreens
     fun getRecordingFrameRate(): Int
     fun getClipLengthSeconds(): Int
     fun getSaveFileDirectory(rom: Rom): Uri

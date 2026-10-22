@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import me.magnum.melonds.MelonEmulator
+import me.magnum.melonds.domain.model.CaptureScreens
 import me.magnum.melonds.domain.model.rom.Rom
 import me.magnum.melonds.domain.repositories.SettingsRepository
 import java.io.File
@@ -68,6 +69,8 @@ class GameplayRecorder @Inject constructor(
     }
 
     private data class RecordingConfig(
+        val requestedScale: Int,
+        val screens: CaptureScreens,
         val width: Int,
         val height: Int,
         val frameRate: Int,
@@ -212,6 +215,8 @@ class GameplayRecorder @Inject constructor(
             if (released || activeRecording != null) {
                 return
             }
+            // The clip buffer may still be running with older settings
+            restartPipelineIfOutdated()
             val currentPipeline = ensurePipeline() ?: throw IOException("Video encoder unavailable")
             val file = recordingFileManager.createTempFile()
             synchronized(lock) {
@@ -219,6 +224,15 @@ class GameplayRecorder @Inject constructor(
                 _isRecording.value = true
             }
             currentPipeline.requestKeyFrame()
+        }
+    }
+
+    /**
+     * Restarts the encoders if the recording settings changed. Does nothing while a recording is in progress. Blocks while the encoders restart.
+     */
+    fun applySettings() {
+        synchronized(operationLock) {
+            restartPipelineIfOutdated()
         }
     }
 
@@ -369,6 +383,34 @@ class GameplayRecorder @Inject constructor(
     }
 
     /**
+     * Must be called with [operationLock] held. The clip buffer is dropped, since its samples can't be mixed with the output of new encoders.
+     */
+    private fun restartPipelineIfOutdated() {
+        var pipelineToStop: EncoderPipeline? = null
+        synchronized(lock) {
+            val currentPipeline = pipeline ?: return
+            if (activeRecording != null || !isOutdated(currentPipeline.config)) {
+                return
+            }
+            clipVideo.clear()
+            clipAudio.clear()
+            pipelineToStop = currentPipeline
+            pipeline = null
+        }
+        pipelineToStop?.stop()
+        if (clipBufferEnabled) {
+            ensurePipeline()
+        }
+    }
+
+    private fun isOutdated(config: RecordingConfig): Boolean {
+        return config.requestedScale != settingsRepository.getRecordingScale() ||
+            config.screens != settingsRepository.getRecordingScreens() ||
+            config.frameRate != settingsRepository.getRecordingFrameRate() ||
+            config.clipLengthUs != settingsRepository.getClipLengthSeconds() * 1_000_000L
+    }
+
+    /**
      * Must be called with [operationLock] held.
      */
     private fun ensurePipeline(): EncoderPipeline? {
@@ -382,11 +424,15 @@ class GameplayRecorder @Inject constructor(
         val frameRate = settingsRepository.getRecordingFrameRate()
         val clipLengthUs = settingsRepository.getClipLengthSeconds() * 1_000_000L
         val sampleRate = MelonEmulator.getRecordingAudioSampleRate()
+        val requestedScale = settingsRepository.getRecordingScale()
+        val screens = settingsRepository.getRecordingScreens()
         // Large sizes aren't supported by every encoder, so fall back to smaller ones
-        for (scale in settingsRepository.getRecordingScale() downTo 1) {
+        for (scale in requestedScale downTo 1) {
             val width = SOURCE_WIDTH * scale
-            val height = SOURCE_HEIGHT * scale
+            val height = screens.sourceHeight * scale
             val config = RecordingConfig(
+                requestedScale = requestedScale,
+                screens = screens,
                 width = width,
                 height = height,
                 frameRate = frameRate,
@@ -559,6 +605,8 @@ class GameplayRecorder @Inject constructor(
             val planes = image?.planes
             val converted = planes != null && planes.size >= 3 && planes.all { it.buffer.isDirect } && MelonEmulator.convertRecordingFrame(
                 frameBuffer,
+                config.screens.sourceY,
+                config.screens.sourceHeight,
                 config.width,
                 config.height,
                 planes[0].buffer, planes[0].rowStride, planes[0].pixelStride,

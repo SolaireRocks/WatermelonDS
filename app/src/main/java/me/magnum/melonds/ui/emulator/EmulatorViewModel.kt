@@ -96,6 +96,7 @@ import me.magnum.melonds.domain.model.layout.LayoutDisplayPair
 import me.magnum.melonds.domain.model.layout.PositionedLayoutComponent
 import me.magnum.melonds.domain.model.layout.LayoutComponent
 import me.magnum.melonds.domain.model.Input
+import me.magnum.melonds.domain.model.CaptureScreens
 import me.magnum.melonds.domain.model.layout.ScreenFold
 import me.magnum.melonds.domain.model.layout.ScreenLayout
 import me.magnum.melonds.domain.model.layout.UILayout
@@ -1330,6 +1331,14 @@ class EmulatorViewModel @Inject constructor(
         if (resumeWhenFinished) {
             resumeAfterSettingsReconciliation.set(true)
         }
+        viewModelScope.launch {
+            // The clip buffer keeps running across settings changes, so it's restarted if the recording settings changed
+            withContext(Dispatchers.IO) {
+                runCatching { gameplayRecorder.applySettings() }.onFailure {
+                    Log.w("GameplayRecorder", "Failed to apply the recording settings", it)
+                }
+            }
+        }
         settingsReconciliationsInFlight.incrementAndGet()
         sessionCoroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var completedNormally = false
@@ -2385,18 +2394,27 @@ class EmulatorViewModel @Inject constructor(
             try {
                 val fileName = withContext(Dispatchers.IO) {
                     val screenshot = emulatorManager.takeScreenshot() ?: return@withContext null
+                    val screens = settingsRepository.getScreenshotScreens()
                     val scale = settingsRepository.getScreenshotScale()
-                    // Nearest-neighbour scaling keeps the pixels sharp
-                    val scaledScreenshot = if (scale > 1) {
-                        Bitmap.createScaledBitmap(screenshot, screenshot.width * scale, screenshot.height * scale, false)
+                    val croppedScreenshot = if (screens != CaptureScreens.BOTH) {
+                        Bitmap.createBitmap(screenshot, 0, screens.sourceY, screenshot.width, screens.sourceHeight)
                     } else {
                         screenshot
+                    }
+                    // Nearest-neighbour scaling keeps the pixels sharp
+                    val scaledScreenshot = if (scale > 1) {
+                        Bitmap.createScaledBitmap(croppedScreenshot, croppedScreenshot.width * scale, croppedScreenshot.height * scale, false)
+                    } else {
+                        croppedScreenshot
                     }
                     try {
                         screenshotFileManager.save(state.rom, scaledScreenshot)
                     } finally {
-                        if (scaledScreenshot !== screenshot) {
+                        if (scaledScreenshot !== croppedScreenshot) {
                             scaledScreenshot.recycle()
+                        }
+                        if (croppedScreenshot !== screenshot) {
+                            croppedScreenshot.recycle()
                         }
                         screenshot.recycle()
                     }
