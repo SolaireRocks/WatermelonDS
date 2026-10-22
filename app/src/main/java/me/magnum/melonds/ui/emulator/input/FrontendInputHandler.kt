@@ -22,6 +22,8 @@ abstract class FrontendInputHandler : IInputListener {
             Input.CYCLE_LAYOUT -> onCycleLayout()
             Input.EXIT_GAME -> onExitGame()
             Input.SCREENSHOT -> onScreenshot()
+            Input.TOGGLE_RECORDING -> onToggleRecording()
+            Input.SAVE_CLIP -> onSaveClip()
             else -> {}
         }
     }
@@ -51,4 +53,6 @@ abstract class FrontendInputHandler : IInputListener {
     abstract fun onCycleLayout()
     abstract fun onExitGame()
     abstract fun onScreenshot()
+    abstract fun onToggleRecording()
+    abstract fun onSaveClip()
 }

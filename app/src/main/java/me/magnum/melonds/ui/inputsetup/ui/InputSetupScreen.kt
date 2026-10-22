@@ -521,6 +521,8 @@ private fun getInputName(input: Input): String? {
         Input.CYCLE_LAYOUT -> R.string.input_cycle_layout
         Input.EXIT_GAME -> R.string.input_exit_game
         Input.SCREENSHOT -> R.string.input_screenshot
+        Input.TOGGLE_RECORDING -> R.string.input_toggle_recording
+        Input.SAVE_CLIP -> R.string.input_save_clip
         else -> return null
     }
 

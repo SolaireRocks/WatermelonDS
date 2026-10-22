@@ -55,4 +55,59 @@
             app:iconSpaceReserved="false"
             android:defaultValue="50"
             android:max="100" />
+
+    <PreferenceCategory
+            android:key="screenshots_and_recording_category"
+            android:title="@string/screenshots_and_recording"
+            app:iconSpaceReserved="false">
+
+        <ListPreference
+                android:key="screenshot_scale"
+                android:title="@string/screenshot_scale"
+                android:summary="%s"
+                app:iconSpaceReserved="false"
+                android:entries="@array/screenshot_scale_options"
+                android:entryValues="@array/screenshot_scale_values"
+                android:defaultValue="1" />
+
+        <me.magnum.melonds.ui.settings.preferences.StoragePickerPreference
+                android:key="recording_directory"
+                android:title="@string/recording_directory"
+                app:iconSpaceReserved="false"
+                app:type="directory"
+                app:permissions="read_write"
+                app:persistPermissions="true" />
+
+        <ListPreference
+                android:key="recording_scale"
+                android:title="@string/recording_scale"
+                android:summary="%s"
+                app:iconSpaceReserved="false"
+                android:entries="@array/recording_scale_options"
+                android:entryValues="@array/recording_scale_values"
+                android:defaultValue="2" />
+
+        <ListPreference
+                android:key="recording_frame_rate"
+                android:title="@string/recording_frame_rate"
+                android:summary="%s"
+                app:iconSpaceReserved="false"
+                android:entries="@array/recording_frame_rate_options"
+                android:entryValues="@array/recording_frame_rate_values"
+                android:defaultValue="60" />
+
+        <ListPreference
+                android:key="recording_clip_length"
+                android:title="@string/recording_clip_length"
+                android:summary="@string/recording_clip_length_summary"
+                app:iconSpaceReserved="false"
+                android:entries="@array/recording_clip_length_options"
+                android:entryValues="@array/recording_clip_length_values"
+                android:defaultValue="30" />
+
+        <Preference
+                android:key="delete_unsaved_recordings"
+                android:title="@string/delete_unsaved_recordings"
+                app:iconSpaceReserved="false" />
+    </PreferenceCategory>
 </PreferenceScreen>

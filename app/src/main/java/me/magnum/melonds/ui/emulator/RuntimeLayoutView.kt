@@ -159,6 +159,9 @@ class RuntimeLayoutView(context: Context, attrs: AttributeSet? = null) : LayoutV
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_SAVE)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_SAVE, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_QUICK_LOAD)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.QUICK_LOAD, enableHapticFeedback, touchVibrator))
             getLayoutComponentView(LayoutComponent.BUTTON_REWIND)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.REWIND, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_SCREENSHOT)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.SCREENSHOT, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_RECORD)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.TOGGLE_RECORDING, enableHapticFeedback, touchVibrator))
+            getLayoutComponentView(LayoutComponent.BUTTON_SAVE_CLIP)?.view?.setOnTouchListener(SingleButtonInputHandler(it, Input.SAVE_CLIP, enableHapticFeedback, touchVibrator))
         }
 
         getLayoutComponentViews().forEach {

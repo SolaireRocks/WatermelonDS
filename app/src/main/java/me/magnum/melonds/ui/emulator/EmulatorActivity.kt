@@ -382,6 +382,14 @@ class EmulatorActivity : AppCompatActivity() {
             viewModel.takeScreenshot()
         }
 
+        override fun onToggleRecording() {
+            viewModel.toggleRecording()
+        }
+
+        override fun onSaveClip() {
+            viewModel.saveClip()
+        }
+
         override fun onRewind() {
             viewModel.onOpenRewind()
         }
@@ -960,6 +968,14 @@ class EmulatorActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isRecording.collectLatest {
+                    binding.viewLayoutControls.setLayoutComponentToggleState(LayoutComponent.BUTTON_RECORD, it)
+                    presentation?.layoutView?.setLayoutComponentToggleState(LayoutComponent.BUTTON_RECORD, it)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.toastEvent.collectLatest {
                     val (message, duration) = when (it) {
                         ToastEvent.GbaLoadFailed -> getString(R.string.error_load_gba_rom) to Toast.LENGTH_SHORT
@@ -967,6 +983,12 @@ class EmulatorActivity : AppCompatActivity() {
                         ToastEvent.QuickLoadSuccessful -> getString(R.string.loaded) to Toast.LENGTH_SHORT
                         is ToastEvent.ScreenshotSaved -> getString(R.string.screenshot_saved, it.fileName) to Toast.LENGTH_SHORT
                         ToastEvent.ScreenshotFailed -> getString(R.string.screenshot_failed) to Toast.LENGTH_LONG
+                        ToastEvent.RecordingStarted -> getString(R.string.recording_started) to Toast.LENGTH_SHORT
+                        is ToastEvent.RecordingSaved -> getString(R.string.recording_saved, it.fileName) to Toast.LENGTH_SHORT
+                        ToastEvent.RecordingFailed -> getString(R.string.recording_failed) to Toast.LENGTH_LONG
+                        is ToastEvent.ClipSaved -> getString(R.string.clip_saved, it.fileName) to Toast.LENGTH_SHORT
+                        ToastEvent.ClipUnavailable -> getString(R.string.clip_unavailable) to Toast.LENGTH_SHORT
+                        ToastEvent.ClipFailed -> getString(R.string.clip_failed) to Toast.LENGTH_LONG
                         ToastEvent.RewindNotEnabled -> getString(R.string.rewind_not_enabled) to Toast.LENGTH_SHORT
                         ToastEvent.RewindNotAvailableWhileRAHardcoreModeEnabled -> getString(R.string.rewind_unavailable_ra_hardcore_enabled) to Toast.LENGTH_LONG
                         ToastEvent.StateLoadFailed -> getString(R.string.failed_load_state) to Toast.LENGTH_SHORT
@@ -1621,6 +1643,7 @@ class EmulatorActivity : AppCompatActivity() {
 
                     frontendInputHandler.syncFastForwardToggles { component, enabled -> setLayoutComponentToggleState(component, enabled) }
                     setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
+                    setLayoutComponentToggleState(LayoutComponent.BUTTON_RECORD, viewModel.isRecording.value)
                     setConnectedControllersState(connectedControllerManager.controllersState.value)
                 }
 
@@ -1789,11 +1812,13 @@ class EmulatorActivity : AppCompatActivity() {
                 instantiateLayout(layoutConfiguration, LayoutTarget.MAIN_SCREEN)
                 frontendInputHandler.syncFastForwardToggles { component, enabled -> setLayoutComponentToggleState(component, enabled) }
                 setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
+                setLayoutComponentToggleState(LayoutComponent.BUTTON_RECORD, viewModel.isRecording.value)
             }
             presentation?.apply {
                 updateLayout(layoutConfiguration)
                 frontendInputHandler.syncFastForwardToggles { component, enabled -> layoutView.setLayoutComponentToggleState(component, enabled) }
                 layoutView.setLayoutComponentToggleState(LayoutComponent.BUTTON_MICROPHONE_TOGGLE, frontendInputHandler.microphoneEnabled)
+                layoutView.setLayoutComponentToggleState(LayoutComponent.BUTTON_RECORD, viewModel.isRecording.value)
             }
 
             handler.post {

@@ -1584,6 +1584,26 @@ class SharedPreferencesSettingsRepository(
         return preferences.getStringSet("screenshot_directory", null)?.firstOrNull()?.toUri()
     }
 
+    override fun getScreenshotScale(): Int {
+        return preferences.getString("screenshot_scale", "1")?.toIntOrNull()?.coerceIn(1, 8) ?: 1
+    }
+
+    override fun getRecordingDirectory(): Uri? {
+        return preferences.getStringSet("recording_directory", null)?.firstOrNull()?.toUri()
+    }
+
+    override fun getRecordingScale(): Int {
+        return preferences.getString("recording_scale", "2")?.toIntOrNull()?.coerceIn(1, 4) ?: 2
+    }
+
+    override fun getRecordingFrameRate(): Int {
+        return preferences.getString("recording_frame_rate", "60")?.toIntOrNull()?.coerceIn(15, 60) ?: 60
+    }
+
+    override fun getClipLengthSeconds(): Int {
+        return preferences.getString("recording_clip_length", "30")?.toIntOrNull()?.coerceIn(5, 180) ?: 30
+    }
+
     override fun getSaveFileDirectory(rom: Rom): Uri {
         return if (!saveNextToRomFile() && getSaveFileDirectory() != null) {
             getSaveFileDirectory()!!

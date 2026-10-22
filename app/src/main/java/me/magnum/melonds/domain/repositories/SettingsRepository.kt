@@ -141,6 +141,11 @@ interface SettingsRepository {
     fun isAutoLoadStateOnLaunchEnabled(): Boolean
     fun getSaveFileDirectory(): Uri?
     fun getScreenshotDirectory(): Uri?
+    fun getScreenshotScale(): Int
+    fun getRecordingDirectory(): Uri?
+    fun getRecordingScale(): Int
+    fun getRecordingFrameRate(): Int
+    fun getClipLengthSeconds(): Int
     fun getSaveFileDirectory(rom: Rom): Uri
     fun getSaveStateLocation(rom: Rom): SaveStateLocation
     fun getSaveStateDirectory(rom: Rom): Uri?

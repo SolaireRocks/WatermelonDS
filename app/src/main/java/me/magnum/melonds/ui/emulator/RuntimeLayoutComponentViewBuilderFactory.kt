@@ -24,6 +24,7 @@ class RuntimeLayoutComponentViewBuilderFactory : LayoutComponentViewBuilderFacto
                 LayoutComponent.BUTTON_FAST_FORWARD_2,
                 LayoutComponent.BUTTON_FAST_FORWARD_3,
                 LayoutComponent.BUTTON_MICROPHONE_TOGGLE,
+                LayoutComponent.BUTTON_RECORD,
                 LayoutComponent.BUTTON_TOGGLE_SOFT_INPUT -> ToggleableSingleButtonLayoutComponentViewBuilder(layoutComponent)
                 else -> SingleButtonLayoutComponentViewBuilder(layoutComponent)
             }

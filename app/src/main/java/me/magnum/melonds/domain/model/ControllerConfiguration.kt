@@ -31,6 +31,8 @@ class ControllerConfiguration(
             Input.CYCLE_LAYOUT,
             Input.EXIT_GAME,
             Input.SCREENSHOT,
+            Input.TOGGLE_RECORDING,
+            Input.SAVE_CLIP,
         )
     }
 

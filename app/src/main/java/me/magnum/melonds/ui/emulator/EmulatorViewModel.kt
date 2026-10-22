@@ -1,6 +1,7 @@
 package me.magnum.melonds.ui.emulator
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.util.Log
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
@@ -55,6 +57,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlin.concurrent.thread
 import me.magnum.melonds.MelonDSAndroidInterface
 import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.R
@@ -91,6 +94,8 @@ import me.magnum.melonds.domain.model.layout.Insets
 import me.magnum.melonds.domain.model.layout.LayoutConfiguration
 import me.magnum.melonds.domain.model.layout.LayoutDisplayPair
 import me.magnum.melonds.domain.model.layout.PositionedLayoutComponent
+import me.magnum.melonds.domain.model.layout.LayoutComponent
+import me.magnum.melonds.domain.model.Input
 import me.magnum.melonds.domain.model.layout.ScreenFold
 import me.magnum.melonds.domain.model.layout.ScreenLayout
 import me.magnum.melonds.domain.model.layout.UILayout
@@ -126,6 +131,7 @@ import me.magnum.melonds.domain.repositories.SettingsRepository
 import me.magnum.melonds.domain.services.EmulatorManager
 import me.magnum.melonds.impl.ShaderCompileTimeStore
 import me.magnum.melonds.impl.ScreenshotFileManager
+import me.magnum.melonds.impl.recording.GameplayRecorder
 import me.magnum.melonds.impl.emulator.AndroidEmulatorManager
 import me.magnum.melonds.impl.emulator.EmulatorSession
 import me.magnum.melonds.impl.emulator.LeaderboardTrackerUpdateLogLimiter
@@ -254,6 +260,7 @@ class EmulatorViewModel @Inject constructor(
     private val saveStatesRepository: SaveStatesRepository,
     private val screenshotFrameBufferProvider: ScreenshotFrameBufferProvider,
     private val screenshotFileManager: ScreenshotFileManager,
+    private val gameplayRecorder: GameplayRecorder,
     private val uiLayoutProvider: UILayoutProvider,
     private val emulatorManager: EmulatorManager,
     private val emulatorSession: EmulatorSession,
@@ -264,6 +271,10 @@ class EmulatorViewModel @Inject constructor(
 
     private val sessionCoroutineScope = EmulatorSessionCoroutineScope()
     private var screenshotJob: Job? = null
+    private var recordingJob: Job? = null
+    private var clipJob: Job? = null
+
+    val isRecording = gameplayRecorder.isRecording
 
     data class HeavyShaderCompileRequest(
         val presetName: String,
@@ -547,6 +558,24 @@ class EmulatorViewModel @Inject constructor(
         viewModelScope.launch {
             _layout.filterNotNull().collect {
                 uiLayoutProvider.setCurrentLayoutConfiguration(it)
+            }
+        }
+
+        viewModelScope.launch {
+            // The clip buffer only runs while a game is running and a "Save clip" button or key is available, since it keeps encoding in the background
+            combine(_emulatorState, _runtimeLayout, controllerConfiguration) { state, runtimeLayout, controllers ->
+                val layoutHasClipButton = runtimeLayout?.layout?.let { layout ->
+                    listOfNotNull(layout.mainScreenLayout.components, layout.secondaryScreenLayout.components).flatten().any {
+                        it.component == LayoutComponent.BUTTON_SAVE_CLIP
+                    }
+                } ?: false
+                state is EmulatorState.RunningRom && (layoutHasClipButton || controllers.getInputAssignments(Input.SAVE_CLIP) != null)
+            }.distinctUntilChanged().collectLatest { enabled ->
+                withContext(Dispatchers.IO) {
+                    runCatching { gameplayRecorder.setClipBufferEnabled(enabled) }.onFailure {
+                        Log.w("GameplayRecorder", "Failed to update the clip buffer", it)
+                    }
+                }
             }
         }
 
@@ -1804,6 +1833,11 @@ class EmulatorViewModel @Inject constructor(
         unloadAndReleaseActiveRuntimeAuthenticationLease("emulator_stopped")
         activeRuntimeBridgeConfig = null
         activeRuntimePath = RetroAchievementsRuntimePath.DISABLED
+        viewModelScope.launch {
+            // Saves a recording that was still running and drops the clip buffer of this game
+            val recording = withContext(Dispatchers.IO) { gameplayRecorder.onEmulatorStopped() }
+            recording?.let { saveRecording(it) }
+        }
         emulatorManager.stopEmulator()
         screenshotFrameBufferProvider.clearBuffer()
     }
@@ -2351,9 +2385,19 @@ class EmulatorViewModel @Inject constructor(
             try {
                 val fileName = withContext(Dispatchers.IO) {
                     val screenshot = emulatorManager.takeScreenshot() ?: return@withContext null
+                    val scale = settingsRepository.getScreenshotScale()
+                    // Nearest-neighbour scaling keeps the pixels sharp
+                    val scaledScreenshot = if (scale > 1) {
+                        Bitmap.createScaledBitmap(screenshot, screenshot.width * scale, screenshot.height * scale, false)
+                    } else {
+                        screenshot
+                    }
                     try {
-                        screenshotFileManager.save(state.rom, screenshot)
+                        screenshotFileManager.save(state.rom, scaledScreenshot)
                     } finally {
+                        if (scaledScreenshot !== screenshot) {
+                            scaledScreenshot.recycle()
+                        }
                         screenshot.recycle()
                     }
                 }
@@ -2367,6 +2411,62 @@ class EmulatorViewModel @Inject constructor(
             } catch (exception: Exception) {
                 Log.w("Screenshot", "Capture failed", exception)
                 _toastEvent.emit(ToastEvent.ScreenshotFailed)
+            }
+        }
+    }
+
+    fun toggleRecording() {
+        val state = _emulatorState.value as? EmulatorState.RunningRom ?: return
+        if (recordingJob?.isActive == true) {
+            return
+        }
+        // Not tied to the session scope so a recording still gets saved if the game is closed while it's being written
+        recordingJob = viewModelScope.launch {
+            if (gameplayRecorder.isRecording.value) {
+                val recording = withContext(Dispatchers.IO) { gameplayRecorder.stopRecording() } ?: return@launch
+                saveRecording(recording)
+            } else {
+                try {
+                    withContext(Dispatchers.IO) { gameplayRecorder.startRecording(state.rom) }
+                    _toastEvent.emit(ToastEvent.RecordingStarted)
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (exception: Exception) {
+                    Log.w("GameplayRecorder", "Failed to start recording", exception)
+                    _toastEvent.emit(ToastEvent.RecordingFailed)
+                }
+            }
+        }
+    }
+
+    private suspend fun saveRecording(recording: GameplayRecorder.PendingRecording) {
+        try {
+            val fileName = withContext(Dispatchers.IO) { gameplayRecorder.saveRecording(recording) }
+            _toastEvent.emit(ToastEvent.RecordingSaved(fileName))
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (exception: Exception) {
+            Log.w("GameplayRecorder", "Failed to save recording", exception)
+            _toastEvent.emit(ToastEvent.RecordingFailed)
+        }
+    }
+
+    fun saveClip() {
+        val state = _emulatorState.value as? EmulatorState.RunningRom ?: return
+        if (clipJob?.isActive == true) {
+            return
+        }
+        clipJob = viewModelScope.launch {
+            try {
+                val fileName = withContext(Dispatchers.IO) { gameplayRecorder.saveClip(state.rom) }
+                _toastEvent.emit(ToastEvent.ClipSaved(fileName))
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (exception: GameplayRecorder.ClipUnavailableException) {
+                _toastEvent.emit(ToastEvent.ClipUnavailable)
+            } catch (exception: Exception) {
+                Log.w("GameplayRecorder", "Failed to save clip", exception)
+                _toastEvent.emit(ToastEvent.ClipFailed)
             }
         }
     }
@@ -6661,6 +6761,14 @@ class EmulatorViewModel @Inject constructor(
         raSessionJob?.cancel()
         raSessionJob = null
         sessionCoroutineScope.cancel()
+        // The encoders must stop before the emulator is cleaned up. A recording in progress is still saved in the background
+        gameplayRecorder.release()?.let { recording ->
+            thread(name = "GameplayRecorder-Save") {
+                runCatching { gameplayRecorder.saveRecording(recording) }.onFailure {
+                    Log.w("GameplayRecorder", "Failed to save recording", it)
+                }
+            }
+        }
         unloadAndReleaseActiveRuntimeAuthenticationLease("view_model_cleared")
         retroAchievementsEndpointProvider.endSession()
         emulatorManager.cleanEmulator()

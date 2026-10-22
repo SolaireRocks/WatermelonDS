@@ -32,3 +32,10 @@ Adding a new on-screen layout component usually touches all of these:
 Frontend actions (pause, swap screens, fast-forward, etc.) are `Input` entries with `keyCode = -1`, dispatched in `ui/emulator/input/FrontendInputHandler.kt` and implemented in the `frontendInputHandler` object inside `EmulatorActivity.kt`. `Input.PAUSE` opens the pause menu, and both the Pause and Menu buttons use it. `Input.SWAP_SCREENS` swaps the top and bottom screens.
 
 Existing extras: 8-way D-pad (`DPAD_DIAGONAL`), turbo A/B/X/Y, two-button combos (picked via the "Multi-button…" entry; `BUTTON_COMBO_*` aren't listed individually), and Fast Forward 1–3 with per-button speeds in General settings (native `setFastForwardSpeedOverride`).
+
+## Screenshots and gameplay recording
+- On-screen buttons: `BUTTON_SCREENSHOT` (`Input.SCREENSHOT`), `BUTTON_RECORD` (`Input.TOGGLE_RECORDING`, toggleable: red while recording) and `BUTTON_SAVE_CLIP` (`Input.SAVE_CLIP`). All three can also be mapped to controller keys.
+- Settings live in Input settings under "Screenshots and recording" (`pref_input.xml`, logic in `InputPreferencesFragment`): screenshot size (nearest-neighbour upscale), recordings folder, recording resolution/frame rate, clip length (default 30 s) and "Delete unsaved recordings".
+- `impl/recording/GameplayRecorder.kt` records the emulated screens + game audio (not the device screen) with MediaCodec (H.264 + AAC) into MP4. One encoder pipeline feeds both an active recording and an in-memory rolling clip buffer. The clip buffer only runs while a ROM runs and a Save clip button/key exists (see the `combine` in `EmulatorViewModel.init`).
+- Frames come from the screenshot path (`MelonEmulator.captureRecordingFrame`, 256x384) and are converted to YUV natively (`cpp/GameplayRecording.cpp`). Audio is tapped in `OboeCallback::onAudioReady` before the output volume is applied.
+- In-progress files go to `<external files>/recordings_temp` and are copied to the recordings folder when finished (`RecordingFileManager`). Leftovers from interrupted recordings are what "Delete unsaved recordings" removes.

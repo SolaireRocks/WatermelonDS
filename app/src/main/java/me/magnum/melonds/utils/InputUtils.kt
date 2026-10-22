@@ -71,6 +71,9 @@ private fun getStaticLayoutComponentName(layoutComponent: LayoutComponent): Int 
         LayoutComponent.BUTTON_QUICK_SAVE -> R.string.input_quick_save
         LayoutComponent.BUTTON_QUICK_LOAD -> R.string.input_quick_load
         LayoutComponent.BUTTON_REWIND -> R.string.rewind
+        LayoutComponent.BUTTON_SCREENSHOT -> R.string.input_screenshot
+        LayoutComponent.BUTTON_RECORD -> R.string.input_toggle_recording
+        LayoutComponent.BUTTON_SAVE_CLIP -> R.string.input_save_clip
         // Components with generated names are handled by getLayoutComponentName
         else -> throw IllegalArgumentException("Component $layoutComponent has no static name")
     }

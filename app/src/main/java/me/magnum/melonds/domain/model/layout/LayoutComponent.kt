@@ -31,6 +31,9 @@ enum class LayoutComponent(val matchingInputs: List<Input>, val allowsSharedInpu
     BUTTON_QUICK_LOAD(listOf(Input.QUICK_LOAD)),
     BUTTON_REWIND(listOf(Input.REWIND)),
     BUTTON_MICROPHONE_TOGGLE(listOf(Input.MICROPHONE)),
+    BUTTON_SCREENSHOT(listOf(Input.SCREENSHOT)),
+    BUTTON_RECORD(listOf(Input.TOGGLE_RECORDING)),
+    BUTTON_SAVE_CLIP(listOf(Input.SAVE_CLIP)),
     // Individual face buttons can be added alongside the ABXY cluster
     BUTTON_A(listOf(Input.A), allowsSharedInputs = true),
     BUTTON_B(listOf(Input.B), allowsSharedInputs = true),

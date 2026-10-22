@@ -136,6 +136,72 @@
         <item>system</item>
     </string-array>
 
+    <string-array name="screenshot_scale_options" translatable="false">
+        <item>Original (256x384)</item>
+        <item>2x (512x768)</item>
+        <item>3x (768x1152)</item>
+        <item>4x (1024x1536)</item>
+        <item>5x (1280x1920)</item>
+        <item>6x (1536x2304)</item>
+        <item>8x (2048x3072)</item>
+    </string-array>
+
+    <string-array name="screenshot_scale_values" translatable="false">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>8</item>
+    </string-array>
+
+    <string-array name="recording_scale_options" translatable="false">
+        <item>Original (256x384)</item>
+        <item>2x (512x768)</item>
+        <item>3x (768x1152)</item>
+        <item>4x (1024x1536)</item>
+    </string-array>
+
+    <string-array name="recording_scale_values" translatable="false">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+
+    <string-array name="recording_frame_rate_options" translatable="false">
+        <item>30 FPS</item>
+        <item>60 FPS</item>
+    </string-array>
+
+    <string-array name="recording_frame_rate_values" translatable="false">
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="recording_clip_length_options" translatable="false">
+        <item>10 seconds</item>
+        <item>15 seconds</item>
+        <item>30 seconds</item>
+        <item>45 seconds</item>
+        <item>1 minute</item>
+        <item>90 seconds</item>
+        <item>2 minutes</item>
+        <item>3 minutes</item>
+    </string-array>
+
+    <string-array name="recording_clip_length_values" translatable="false">
+        <item>10</item>
+        <item>15</item>
+        <item>30</item>
+        <item>45</item>
+        <item>60</item>
+        <item>90</item>
+        <item>120</item>
+        <item>180</item>
+    </string-array>
+
     <string-array name="fast_forward_button_speed_options" translatable="false">
         <item>1.5x</item>
         <item>2x</item>

@@ -307,6 +307,39 @@ object MelonEmulator {
 
     external fun takeScreenshot(): IntArray?
 
+    /**
+     * Captures the next emulated frame (both screens, 256x384 ARGB) into [buffer], a direct buffer of at least 256*384*4 bytes. Returns false if the
+     * emulator isn't running or is paused.
+     */
+    external fun captureRecordingFrame(buffer: ByteBuffer): Boolean
+
+    /**
+     * Scales a frame captured with [captureRecordingFrame] to [width]x[height] and writes it as YUV 4:2:0 into the given encoder image planes.
+     */
+    external fun convertRecordingFrame(
+        source: ByteBuffer,
+        width: Int,
+        height: Int,
+        yPlane: ByteBuffer,
+        yRowStride: Int,
+        yPixelStride: Int,
+        uPlane: ByteBuffer,
+        uRowStride: Int,
+        uPixelStride: Int,
+        vPlane: ByteBuffer,
+        vRowStride: Int,
+        vPixelStride: Int,
+    ): Boolean
+
+    external fun setRecordingAudioCaptureEnabled(enabled: Boolean)
+
+    /**
+     * Reads up to [maxFrames] frames of 16-bit stereo game audio into [buffer]. Returns the number of frames read.
+     */
+    external fun readRecordingAudio(buffer: ByteBuffer, maxFrames: Int): Int
+
+    external fun getRecordingAudioSampleRate(): Int
+
     external fun setFastForwardEnabled(enabled: Boolean)
 
     external fun isFastForwardEnabled(): Boolean

@@ -1,5 +1,6 @@
 #include "MelonDSAudio.h"
 #include "AudioOutputCapture.h"
+#include "GameplayRecording.h"
 #include "MicInputOboeCallback.h"
 #include "mic_blow.h"
 #include "OboeCallback.h"
@@ -148,6 +149,7 @@ namespace MelonDSAndroid
         }
 
         candidate->stream->setPerformanceHintEnabled(true);
+        GameplayRecording::setAudioSampleRate(candidate->stream->getSampleRate());
         const int requestedBufferFrames = getAudioBufferSizeInFrames(requestedAudioLatency);
         const int framesPerBurst = candidate->stream->getFramesPerBurst();
 

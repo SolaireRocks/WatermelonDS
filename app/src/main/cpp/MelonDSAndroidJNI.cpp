@@ -34,6 +34,7 @@
 #include "JniEnvHandler.h"
 #include "AndroidMelonEventMessenger.h"
 #include "ExactLiveGuide.h"
+#include "GameplayRecording.h"
 #include "MelonDSAndroidInterface.h"
 #include "MelonDSAndroidConfiguration.h"
 #include "MelonDSAndroidCameraHandler.h"
@@ -2954,6 +2955,85 @@ Java_me_magnum_melonds_MelonEmulator_takeScreenshot(JNIEnv* env, jobject thiz)
     if (env->ExceptionCheck())
         return nullptr;
     return result;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_me_magnum_melonds_MelonEmulator_captureRecordingFrame(JNIEnv* env, jobject thiz, jobject buffer)
+{
+    constexpr size_t pixelCount = 256u * 384u;
+    auto* destination = static_cast<u32*>(env->GetDirectBufferAddress(buffer));
+    if (destination == nullptr || env->GetDirectBufferCapacity(buffer) < static_cast<jlong>(pixelCount * sizeof(u32)))
+        return JNI_FALSE;
+
+    // Same capture path as takeScreenshot, but copies into a reusable buffer since the recorder calls this every frame
+    std::lock_guard<std::mutex> lifecycleLock(emulatorLifecycleMutex);
+    if (!emulatorResourcesActive)
+        return JNI_FALSE;
+    pthread_mutex_lock(&emuThreadMutex);
+    const bool canCapture = started.load(std::memory_order_acquire)
+        && !stop.load(std::memory_order_acquire) && !paused;
+    pthread_mutex_unlock(&emuThreadMutex);
+    if (!canCapture || !MelonDSAndroid::takeScreenshot())
+        return JNI_FALSE;
+    try
+    {
+        std::lock_guard<std::mutex> coreLock(emulationCoreAccessMutex);
+        const std::vector<u32> pixels = MelonDSAndroid::getScreenshotPixels();
+        if (pixels.size() != pixelCount)
+            return JNI_FALSE;
+        memcpy(destination, pixels.data(), pixelCount * sizeof(u32));
+    }
+    catch (const std::bad_alloc&)
+    {
+        return JNI_FALSE;
+    }
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_me_magnum_melonds_MelonEmulator_convertRecordingFrame(JNIEnv* env, jobject thiz, jobject source, jint width, jint height,
+    jobject yPlane, jint yRowStride, jint yPixelStride,
+    jobject uPlane, jint uRowStride, jint uPixelStride,
+    jobject vPlane, jint vRowStride, jint vPixelStride)
+{
+    auto* sourcePixels = static_cast<const std::uint32_t*>(env->GetDirectBufferAddress(source));
+    auto* y = static_cast<std::uint8_t*>(env->GetDirectBufferAddress(yPlane));
+    auto* u = static_cast<std::uint8_t*>(env->GetDirectBufferAddress(uPlane));
+    auto* v = static_cast<std::uint8_t*>(env->GetDirectBufferAddress(vPlane));
+    if (sourcePixels == nullptr || y == nullptr || u == nullptr || v == nullptr || width <= 0 || height <= 0)
+        return JNI_FALSE;
+    if (env->GetDirectBufferCapacity(source) < static_cast<jlong>(256 * 384 * sizeof(std::uint32_t)))
+        return JNI_FALSE;
+
+    MelonDSAndroid::GameplayRecording::convertArgbToYuv420(
+        sourcePixels, 256, 384, width, height,
+        y, yRowStride, yPixelStride,
+        u, uRowStride, uPixelStride,
+        v, vRowStride, vPixelStride);
+    return JNI_TRUE;
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setRecordingAudioCaptureEnabled(JNIEnv* env, jobject thiz, jboolean enabled)
+{
+    MelonDSAndroid::GameplayRecording::setAudioCaptureEnabled(enabled == JNI_TRUE);
+}
+
+JNIEXPORT jint JNICALL
+Java_me_magnum_melonds_MelonEmulator_readRecordingAudio(JNIEnv* env, jobject thiz, jobject buffer, jint maxFrames)
+{
+    auto* destination = static_cast<std::int16_t*>(env->GetDirectBufferAddress(buffer));
+    if (destination == nullptr)
+        return 0;
+    const jlong capacityFrames = env->GetDirectBufferCapacity(buffer) / static_cast<jlong>(2 * sizeof(std::int16_t));
+    const auto frames = static_cast<std::int32_t>(std::min<jlong>(maxFrames, capacityFrames));
+    return MelonDSAndroid::GameplayRecording::readAudio(destination, frames);
+}
+
+JNIEXPORT jint JNICALL
+Java_me_magnum_melonds_MelonEmulator_getRecordingAudioSampleRate(JNIEnv* env, jobject thiz)
+{
+    return MelonDSAndroid::GameplayRecording::getAudioSampleRate();
 }
 
 JNIEXPORT void JNICALL
