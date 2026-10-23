@@ -1,0 +1,26 @@
+diff --git a/src/SPU.cpp b/src/SPU.cpp
+index 1890e87d..d3c60a94 100644
+--- a/src/SPU.cpp
++++ b/src/SPU.cpp
+@@ -36,6 +36,12 @@
+ 
+ #define INTERNAL_SAMPLE_RATE 16756991.f
+ 
++namespace MelonDSAndroid::GameplayRecording
++{
++// Implemented by the Android frontend. Receives every mixed sample in emulated time, before any output resampling or volume
++void onSpuSample(melonDS::s16 left, melonDS::s16 right, melonDS::u32 cycles) noexcept;
++}
++
+ namespace melonDS
+ {
+ using Platform::Log;
+@@ -1396,6 +1402,8 @@ void SPU::Mix(u32 spucycles)
+         output[1] &= 0xFFC0;
+     }
+ 
++    MelonDSAndroid::GameplayRecording::onSpuSample(output[0], output[1], spucycles);
++
+     BlipTimer += spucycles;
+ 
+     if (output[0] != OutputLastSamples[0])

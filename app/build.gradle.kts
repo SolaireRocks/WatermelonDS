@@ -516,7 +516,38 @@ val buildLibrashaderAndroid by tasks.registering {
     outputs.dir(layout.buildDirectory.dir("generated/librashader"))
 }
 
+val corePatchDir = layout.projectDirectory.dir("core-patches")
+
+// melonDS-android-lib is an upstream submodule, so the frontend's changes to it are kept as patches and applied to the checkout before building
+val applyCorePatches by tasks.registering {
+    group = "build"
+    description = "Applies the frontend's patches to the melonDS-android-lib submodule."
+    inputs.dir(corePatchDir)
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val git = resolveBuildTool("git")
+        val coreDir = rootProject.file("melonDS-android-lib")
+        val patches = corePatchDir.asFile
+            .listFiles { file -> file.isFile && file.name.endsWith(".patch") }
+            ?.sortedBy { it.name }
+            .orEmpty()
+        patches.forEach { patch ->
+            val alreadyApplied = ProcessBuilder(git, "-C", coreDir.absolutePath, "apply", "--reverse", "--check", "--ignore-whitespace", patch.absolutePath)
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .start()
+                .waitFor() == 0
+            if (!alreadyApplied) {
+                logger.lifecycle("Applying core patch ${patch.name}")
+                runBuildCommand(listOf(git, "-C", coreDir.absolutePath, "apply", "--ignore-whitespace", patch.absolutePath))
+            }
+        }
+    }
+}
+
 tasks.named("preBuild").configure {
+    dependsOn(applyCorePatches)
     dependsOn(regenerateVulkanSpirv)
     dependsOn(buildLibrashaderAndroid)
 }
@@ -524,6 +555,7 @@ tasks.named("preBuild").configure {
 tasks.matching {
     it.name.startsWith("configureCMake") || it.name.startsWith("externalNativeBuild")
 }.configureEach {
+    dependsOn(applyCorePatches)
     dependsOn(buildLibrashaderAndroid)
 }
 

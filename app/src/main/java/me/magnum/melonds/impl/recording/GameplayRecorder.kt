@@ -27,8 +27,9 @@ import kotlin.math.min
  * A single encoder pipeline feeds two consumers: a recording started with [startRecording], and a rolling clip buffer that keeps the last few seconds
  * in memory so [saveClip] can write them out. The pipeline only runs while one of them is in use.
  *
- * Timestamps come from a recording clock that only advances while the emulator produces frames, so pausing the game doesn't leave frozen sections
- * in the video.
+ * Timestamps follow emulated time ([MelonEmulator.getRecordingClockUs]) instead of real time, so recordings always play at normal speed: fast-forwarded
+ * sections aren't sped up and pausing the game doesn't leave frozen sections in the video. The audio comes straight from the emulated sound chip, so it's
+ * recorded at full volume even when the game is muted, turned down or fast-forwarded.
  */
 class GameplayRecorder @Inject constructor(
     private val settingsRepository: SettingsRepository,
@@ -44,16 +45,13 @@ class GameplayRecorder @Inject constructor(
         private const val AUDIO_BIT_RATE = 160_000
         private const val AUDIO_CHUNK_FRAMES = 1024
         private const val CODEC_TIMEOUT_US = 10_000L
-        // Gaps between captured frames longer than this are treated as a pause
-        private const val MAX_FRAME_GAP_US = 100_000L
         private const val IDLE_POLL_NS = 50_000_000L
         // Leaves room between captures for other emulator calls that share the capture lock (save states, pausing...)
         private const val MIN_CAPTURE_GAP_NS = 2_000_000L
+        // While fast-forwarding, frames are captured at up to this many times the recording frame rate (in real time). Each capture costs the renderer
+        // some time, so beyond this speed the fast-forwarded parts of the video get choppier instead of slowing the game down
+        private const val MAX_CAPTURE_RATE_MULTIPLIER = 2
         private const val AUDIO_POLL_NS = 5_000_000L
-        // How far audio may drift from the recording clock before it's resynchronised
-        private const val AUDIO_RESYNC_US = 60_000L
-        // When no game audio arrives for this long (audio output disabled), silence is recorded instead
-        private const val AUDIO_SILENCE_FILL_US = 100_000L
         // Extra history kept so a clip can always start at a key frame (one is produced every second)
         private const val CLIP_KEY_FRAME_MARGIN_US = 2_000_000L
         private const val THREAD_JOIN_TIMEOUT_MS = 3_000L
@@ -486,9 +484,9 @@ class GameplayRecorder @Inject constructor(
         @Volatile var audioFormat: MediaFormat? = null
             private set
 
-        // Recording clock. Only advances while frames are being captured
-        @Volatile private var clockUs = 0L
-        @Volatile private var lastCaptureNs = 0L
+        // Emulated time and dropped audio when the pipeline started. Both tracks are timed from this point
+        private var baseClockUs = 0L
+        private var baseDroppedAudioFrames = 0L
 
         init {
             val videoEncoderFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, config.width, config.height).apply {
@@ -521,6 +519,9 @@ class GameplayRecorder @Inject constructor(
         }
 
         fun start() {
+            baseDroppedAudioFrames = MelonEmulator.getRecordingAudioDroppedFrames()
+            baseClockUs = MelonEmulator.getRecordingClockUs()
+            // Audio is captured from here on, so its first sample lines up with baseClockUs
             MelonEmulator.setRecordingAudioCaptureEnabled(true)
             videoThread.start()
             audioThread.start()
@@ -553,44 +554,40 @@ class GameplayRecorder @Inject constructor(
             }
         }
 
-        private fun currentClockUs(): Long {
-            val lastCapture = lastCaptureNs
-            if (lastCapture == 0L) {
-                return clockUs
-            }
-            return clockUs + ((System.nanoTime() - lastCapture) / 1000).coerceIn(0, MAX_FRAME_GAP_US)
+        private fun clockUs(): Long {
+            return MelonEmulator.getRecordingClockUs() - baseClockUs
         }
 
         private fun runVideo() {
-            val frameIntervalNs = 1_000_000_000L / config.frameRate
+            val frameIntervalUs = 1_000_000L / config.frameRate
+            val minCaptureIntervalNs = 1_000_000_000L / (config.frameRate * MAX_CAPTURE_RATE_MULTIPLIER)
             val info = MediaCodec.BufferInfo()
+            // Frames sit on a fixed grid of emulated time, one slot per frame
+            var nextFrameIndex = 0L
             var nextCaptureNs = System.nanoTime()
             while (running) {
-                val waitNs = nextCaptureNs - System.nanoTime()
+                val waitNs = maxOf((nextFrameIndex * frameIntervalUs - clockUs()) * 1000, nextCaptureNs - System.nanoTime())
                 if (waitNs > 0) {
-                    LockSupport.parkNanos(waitNs)
+                    // Emulated time stands still while the game is paused, so the wait is capped to keep checking for it
+                    drain(videoCodec, Track.VIDEO, info)
+                    LockSupport.parkNanos(min(waitNs, IDLE_POLL_NS))
                     continue
                 }
 
                 if (!MelonEmulator.captureRecordingFrame(frameBuffer)) {
-                    // The emulator is paused or not running, so the clock stops until frames come in again
-                    lastCaptureNs = 0L
+                    // The emulator is paused or not running
                     nextCaptureNs = System.nanoTime() + IDLE_POLL_NS
                     drain(videoCodec, Track.VIDEO, info)
                     continue
                 }
 
                 val captureNs = System.nanoTime()
-                val lastCapture = lastCaptureNs
-                clockUs += if (lastCapture == 0L) {
-                    frameIntervalNs / 1000
-                } else {
-                    ((captureNs - lastCapture) / 1000).coerceIn(1, MAX_FRAME_GAP_US)
-                }
-                lastCaptureNs = captureNs
-                nextCaptureNs = maxOf(nextCaptureNs + frameIntervalNs, captureNs + MIN_CAPTURE_GAP_NS)
+                // While fast-forwarding, several slots may have passed since the last capture. Skipping them keeps the video at normal speed
+                val frameIndex = maxOf(nextFrameIndex, clockUs() / frameIntervalUs)
+                nextFrameIndex = frameIndex + 1
+                nextCaptureNs = captureNs + maxOf(minCaptureIntervalNs, MIN_CAPTURE_GAP_NS)
 
-                encodeFrame(clockUs)
+                encodeFrame(frameIndex * frameIntervalUs)
                 drain(videoCodec, Track.VIDEO, info)
             }
         }
@@ -620,7 +617,7 @@ class GameplayRecorder @Inject constructor(
         private fun runAudio() {
             val pcm = ByteBuffer.allocateDirect(AUDIO_CHUNK_FRAMES * 4).order(ByteOrder.nativeOrder())
             val info = MediaCodec.BufferInfo()
-            var nextPresentationTimeUs = -1L
+            var queuedFrames = 0L
             var inputIndex = -1
             while (running) {
                 if (inputIndex < 0) {
@@ -632,40 +629,24 @@ class GameplayRecorder @Inject constructor(
                 }
                 val input = audioCodec.getInputBuffer(inputIndex) ?: break
                 val maxFrames = min(AUDIO_CHUNK_FRAMES, input.capacity() / 4)
-                val clock = currentClockUs()
 
-                var frames = MelonEmulator.readRecordingAudio(pcm, maxFrames)
-                if (frames > 0) {
-                    // This audio was just produced, so it should end around the current clock time
-                    val expectedStartUs = (clock - frames * 1_000_000L / config.sampleRate).coerceAtLeast(0)
-                    if (nextPresentationTimeUs >= 0 && nextPresentationTimeUs - expectedStartUs > AUDIO_RESYNC_US) {
-                        // Audio is ahead of the video (frames stopped coming in). Drop it to stay in sync
-                        drain(audioCodec, Track.AUDIO, info)
-                        continue
-                    }
-                    if (nextPresentationTimeUs < 0 || expectedStartUs - nextPresentationTimeUs > AUDIO_RESYNC_US) {
-                        nextPresentationTimeUs = expectedStartUs
-                    }
-                    pcm.position(0).limit(frames * 4)
-                } else {
-                    val lagUs = clock - nextPresentationTimeUs.coerceAtLeast(0)
-                    if (lagUs <= AUDIO_SILENCE_FILL_US) {
-                        drain(audioCodec, Track.AUDIO, info)
-                        LockSupport.parkNanos(AUDIO_POLL_NS)
-                        continue
-                    }
-                    // No game audio is coming in (the audio output may be disabled). Record silence so the audio keeps up with the video
-                    nextPresentationTimeUs = nextPresentationTimeUs.coerceAtLeast(0)
-                    frames = min(maxFrames.toLong(), lagUs * config.sampleRate / 1_000_000L).toInt().coerceAtLeast(1)
-                    pcm.position(0).limit(frames * 4)
-                    repeat(frames * 4) { pcm.put(it, 0.toByte()) }
+                val frames = MelonEmulator.readRecordingAudio(pcm, maxFrames)
+                if (frames <= 0) {
+                    drain(audioCodec, Track.AUDIO, info)
+                    LockSupport.parkNanos(AUDIO_POLL_NS)
+                    continue
                 }
 
+                // The audio follows emulated time, so its timestamp comes from its position in the stream. Audio that was dropped because this thread
+                // fell behind still took up time, so it's counted to stay in sync with the video
+                val droppedFrames = MelonEmulator.getRecordingAudioDroppedFrames() - baseDroppedAudioFrames
+                val presentationTimeUs = (queuedFrames + droppedFrames) * 1_000_000L / config.sampleRate
+                pcm.position(0).limit(frames * 4)
                 input.clear()
                 input.put(pcm)
-                audioCodec.queueInputBuffer(inputIndex, 0, frames * 4, nextPresentationTimeUs, 0)
+                audioCodec.queueInputBuffer(inputIndex, 0, frames * 4, presentationTimeUs, 0)
                 inputIndex = -1
-                nextPresentationTimeUs += frames * 1_000_000L / config.sampleRate
+                queuedFrames += frames
                 drain(audioCodec, Track.AUDIO, info)
             }
         }

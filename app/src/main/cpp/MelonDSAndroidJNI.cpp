@@ -3039,6 +3039,18 @@ Java_me_magnum_melonds_MelonEmulator_getRecordingAudioSampleRate(JNIEnv* env, jo
     return MelonDSAndroid::GameplayRecording::getAudioSampleRate();
 }
 
+JNIEXPORT jlong JNICALL
+Java_me_magnum_melonds_MelonEmulator_getRecordingAudioDroppedFrames(JNIEnv* env, jobject thiz)
+{
+    return static_cast<jlong>(MelonDSAndroid::GameplayRecording::getDroppedAudioFrames());
+}
+
+JNIEXPORT jlong JNICALL
+Java_me_magnum_melonds_MelonEmulator_getRecordingClockUs(JNIEnv* env, jobject thiz)
+{
+    return MelonDSAndroid::GameplayRecording::getEmulatedTimeUs();
+}
+
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_setSlot2AnalogInput(JNIEnv* env, jobject thiz, jfloat x, jfloat y)
 {

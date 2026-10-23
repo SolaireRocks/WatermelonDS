@@ -13,3 +13,4 @@ rcheevos-api/bin/
 *.patch
 !/app/librashader-patches/*.patch
 
+!/app/core-patches/*.patch

@@ -1,5 +1,4 @@
 #include "OboeCallback.h"
-#include "GameplayRecording.h"
 #include "MelonDS.h"
 #include "types.h"
 #include <algorithm>
@@ -61,9 +60,6 @@ OboeCallback::onAudioReady(oboe::AudioStream *stream, void *audioData, int32_t n
 
         std::fill_n(static_cast<s16*>(audioData), numFrames * 2, 0);
     }
-
-    // Gameplay recordings get the game audio before the output volume is applied
-    MelonDSAndroid::GameplayRecording::writeAudio(static_cast<const std::int16_t*>(audioData), numFrames);
 
     if (!mutedForFastForward && _volume < 256)
     {

@@ -343,6 +343,16 @@ object MelonEmulator {
 
     external fun getRecordingAudioSampleRate(): Int
 
+    /**
+     * Total number of recording audio frames dropped because they weren't read in time.
+     */
+    external fun getRecordingAudioDroppedFrames(): Long
+
+    /**
+     * Emulated time in microseconds. Only advances while the emulator runs, and advances faster while fast-forwarding.
+     */
+    external fun getRecordingClockUs(): Long
+
     external fun setFastForwardEnabled(enabled: Boolean)
 
     external fun isFastForwardEnabled(): Boolean

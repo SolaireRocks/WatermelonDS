@@ -2,20 +2,61 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstring>
 
 namespace MelonDSAndroid::GameplayRecording
 {
     namespace
     {
-        // Two seconds of 48 kHz stereo audio. The recorder drains it every few milliseconds
-        constexpr std::uint64_t AudioCapacityFrames = 48000 * 2;
+        constexpr std::int32_t RecordingSampleRate = 48000;
+        // Rate of the SPU cycles passed to onSpuSample (half the ARM7 clock)
+        constexpr std::uint64_t SpuClockRate = 16756991;
+        constexpr double SpuCyclesPerRecordingFrame = static_cast<double>(SpuClockRate) / RecordingSampleRate;
+        // Four seconds of 48 kHz stereo audio. The recorder drains it every few milliseconds, but fast-forward fills it quicker
+        constexpr std::uint64_t AudioCapacityFrames = RecordingSampleRate * 4;
+        constexpr int StagingCapacityFrames = 256;
 
         std::int16_t audioBuffer[AudioCapacityFrames * 2];
         std::atomic<bool> audioCaptureEnabled{false};
+        std::atomic<std::uint32_t> audioCaptureGeneration{0};
         std::atomic<std::uint64_t> audioWriteFrames{0};
         std::atomic<std::uint64_t> audioReadFrames{0};
-        std::atomic<std::int32_t> audioSampleRate{48000};
+        std::atomic<std::uint64_t> audioDroppedFrames{0};
+        std::atomic<std::uint64_t> emulatedCycles{0};
+
+        // Resampler state. Only touched by the emulator thread
+        std::uint32_t producerGeneration = 0;
+        double resamplePhase = 0.0;
+        std::int16_t previousLeft = 0;
+        std::int16_t previousRight = 0;
+        std::int16_t staging[StagingCapacityFrames * 2];
+        int stagingFrames = 0;
+
+        void writeAudio(const std::int16_t* interleavedStereo, std::uint64_t frames) noexcept
+        {
+            const std::uint64_t writePosition = audioWriteFrames.load(std::memory_order_relaxed);
+            const std::uint64_t readPosition = audioReadFrames.load(std::memory_order_acquire);
+            const std::uint64_t freeFrames = AudioCapacityFrames - std::min(writePosition - readPosition, AudioCapacityFrames);
+            const std::uint64_t framesToWrite = std::min(frames, freeFrames);
+            if (framesToWrite < frames)
+                audioDroppedFrames.fetch_add(frames - framesToWrite, std::memory_order_relaxed);
+            if (framesToWrite == 0)
+                return;
+
+            const std::uint64_t start = writePosition % AudioCapacityFrames;
+            const std::uint64_t firstPart = std::min(framesToWrite, AudioCapacityFrames - start);
+            std::memcpy(&audioBuffer[start * 2], interleavedStereo, firstPart * 2 * sizeof(std::int16_t));
+            if (firstPart < framesToWrite)
+                std::memcpy(audioBuffer, &interleavedStereo[firstPart * 2], (framesToWrite - firstPart) * 2 * sizeof(std::int16_t));
+
+            audioWriteFrames.store(writePosition + framesToWrite, std::memory_order_release);
+        }
+
+        inline std::int16_t interpolate(std::int16_t from, std::int16_t to, double t)
+        {
+            return static_cast<std::int16_t>(std::lround(from + (to - from) * t));
+        }
 
         inline std::uint8_t clampToByte(int value)
         {
@@ -34,31 +75,46 @@ namespace MelonDSAndroid::GameplayRecording
     {
         if (enabled)
         {
-            // Called from the reader side, so discarding stale audio by moving the read position is safe
+            // Called from the reader side, so discarding stale audio by moving the read position is safe. The new generation
+            // makes the emulator thread reset its resampler
             audioReadFrames.store(audioWriteFrames.load(std::memory_order_acquire), std::memory_order_release);
+            audioCaptureGeneration.fetch_add(1, std::memory_order_release);
         }
         audioCaptureEnabled.store(enabled, std::memory_order_release);
     }
 
-    void writeAudio(const std::int16_t* interleavedStereo, std::int32_t frames) noexcept
+    void onSpuSample(std::int16_t left, std::int16_t right, std::uint32_t cycles) noexcept
     {
-        if (frames <= 0 || !audioCaptureEnabled.load(std::memory_order_acquire))
+        emulatedCycles.store(emulatedCycles.load(std::memory_order_relaxed) + cycles, std::memory_order_release);
+        if (!audioCaptureEnabled.load(std::memory_order_acquire))
             return;
 
-        const std::uint64_t writePosition = audioWriteFrames.load(std::memory_order_relaxed);
-        const std::uint64_t readPosition = audioReadFrames.load(std::memory_order_acquire);
-        const std::uint64_t freeFrames = AudioCapacityFrames - std::min(writePosition - readPosition, AudioCapacityFrames);
-        const std::uint64_t framesToWrite = std::min<std::uint64_t>(static_cast<std::uint64_t>(frames), freeFrames);
-        if (framesToWrite == 0)
-            return;
+        const std::uint32_t generation = audioCaptureGeneration.load(std::memory_order_acquire);
+        if (generation != producerGeneration)
+        {
+            producerGeneration = generation;
+            resamplePhase = 0.0;
+            stagingFrames = 0;
+            previousLeft = left;
+            previousRight = right;
+        }
 
-        const std::uint64_t start = writePosition % AudioCapacityFrames;
-        const std::uint64_t firstPart = std::min(framesToWrite, AudioCapacityFrames - start);
-        std::memcpy(&audioBuffer[start * 2], interleavedStereo, firstPart * 2 * sizeof(std::int16_t));
-        if (firstPart < framesToWrite)
-            std::memcpy(audioBuffer, &interleavedStereo[firstPart * 2], (framesToWrite - firstPart) * 2 * sizeof(std::int16_t));
-
-        audioWriteFrames.store(writePosition + framesToWrite, std::memory_order_release);
+        // Linear interpolation from the previous sample to this one, which comes `cycles` later
+        while (resamplePhase < cycles)
+        {
+            const double t = resamplePhase / cycles;
+            staging[stagingFrames * 2] = interpolate(previousLeft, left, t);
+            staging[stagingFrames * 2 + 1] = interpolate(previousRight, right, t);
+            if (++stagingFrames == StagingCapacityFrames)
+            {
+                writeAudio(staging, stagingFrames);
+                stagingFrames = 0;
+            }
+            resamplePhase += SpuCyclesPerRecordingFrame;
+        }
+        resamplePhase -= cycles;
+        previousLeft = left;
+        previousRight = right;
     }
 
     std::int32_t readAudio(std::int16_t* interleavedStereo, std::int32_t maxFrames) noexcept
@@ -82,15 +138,20 @@ namespace MelonDSAndroid::GameplayRecording
         return static_cast<std::int32_t>(framesToRead);
     }
 
-    void setAudioSampleRate(std::int32_t sampleRate) noexcept
+    std::uint64_t getDroppedAudioFrames() noexcept
     {
-        if (sampleRate > 0)
-            audioSampleRate.store(sampleRate, std::memory_order_relaxed);
+        return audioDroppedFrames.load(std::memory_order_relaxed);
     }
 
     std::int32_t getAudioSampleRate() noexcept
     {
-        return audioSampleRate.load(std::memory_order_relaxed);
+        return RecordingSampleRate;
+    }
+
+    std::int64_t getEmulatedTimeUs() noexcept
+    {
+        const std::uint64_t cycles = emulatedCycles.load(std::memory_order_acquire);
+        return static_cast<std::int64_t>((cycles / SpuClockRate) * 1000000 + (cycles % SpuClockRate) * 1000000 / SpuClockRate);
     }
 
     void convertArgbToYuv420(
