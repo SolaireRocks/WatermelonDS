@@ -163,7 +163,6 @@ add_library(
         "${ANDROID_CPP_DIR}/DSiSupport.cpp"
         "${ANDROID_CPP_DIR}/EmulatorArgsBuilder.cpp"
         "${ANDROID_CPP_DIR}/EmulatorMessageQueueJNI.cpp"
-        "${ANDROID_CPP_DIR}/FastForwardMusic.cpp"
         "${ANDROID_CPP_DIR}/GameplayRecording.cpp"
         "${ANDROID_CPP_DIR}/JniEnvHandler.cpp"
         "${ANDROID_CPP_DIR}/MelonDS.cpp"

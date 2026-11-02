@@ -47,22 +47,6 @@
             app:iconSpaceReserved="false"
             android:defaultValue="false" />
 
-    <SwitchPreference
-            android:key="audio_normal_speed_music_on_fast_forward"
-            android:title="@string/audio_normal_speed_music_on_fast_forward"
-            android:summary="@string/audio_normal_speed_music_on_fast_forward_summary"
-            android:dependency="sound_enabled"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
-
-    <SwitchPreference
-            android:key="audio_sfx_on_fast_forward_music"
-            android:title="@string/audio_sfx_on_fast_forward_music"
-            android:summary="@string/audio_sfx_on_fast_forward_music_summary"
-            android:dependency="audio_normal_speed_music_on_fast_forward"
-            app:iconSpaceReserved="false"
-            android:defaultValue="false" />
-
     <ListPreference
             android:key="audio_latency"
             android:title="@string/audio_latency"
