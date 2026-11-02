@@ -48,6 +48,7 @@ import me.magnum.melonds.ui.emulator.rewind.model.RewindSaveState
 import me.magnum.melonds.ui.emulator.rewind.model.RewindWindow
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicLong
 
 class AndroidEmulatorManager(
     private val context: Context,
@@ -89,6 +90,7 @@ class AndroidEmulatorManager(
 
     private val achievementsSharedFlow = MutableSharedFlow<RAEvent>(replay = 0, extraBufferCapacity = Int.MAX_VALUE)
     private val dldiFolderSyncManager = DldiFolderSyncManager(context, settingsRepository)
+    private val pauseRequestCount = AtomicLong()
     private val sessionControlLock = Any()
     private var sessionLoading = false
     private var sessionStopRequested = false
@@ -590,7 +592,16 @@ class AndroidEmulatorManager(
     }
 
     override suspend fun pauseEmulator() {
+        pauseRequestCount.incrementAndGet()
         MelonEmulator.pauseEmulation()
+    }
+
+    override fun isEmulatorPaused(): Boolean {
+        return MelonEmulator.isEmulationPaused()
+    }
+
+    override fun getPauseRequestCount(): Long {
+        return pauseRequestCount.get()
     }
 
     override suspend fun resumeEmulator() {

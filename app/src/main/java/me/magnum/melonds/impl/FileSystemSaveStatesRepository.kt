@@ -21,31 +21,55 @@ class FileSystemSaveStatesRepository(
     private val context: Context
 ) : SaveStatesRepository {
 
-    override fun getRomSaveStates(rom: Rom): List<SaveStateSlot> {
-        val saveStateDirectoryDocument = getSaveStateDirectoryDocument(rom) ?: return emptyList()
-        val romFileName = getRomFileNameWithoutExtension(rom) ?: return emptyList()
-
-        val saveStateSlots = Array(9) {
-            SaveStateSlot(it, false, null, null)
-        }
-        val fileNameRegex = "${Regex.escape(romFileName)}\\.ml[0-8]".toRegex()
-        listSaveStateFiles(saveStateDirectoryDocument) { it.matches(fileNameRegex) }.forEach {
-            val slotNumber = it.name.last().digitToInt()
-            val slot = SaveStateSlot(slotNumber, true, Date(it.lastModified), null)
-            val screenshotUri = saveStateScreenshotProvider.getRomSaveStateScreenshotUri(rom, slot)
-            saveStateSlots[slotNumber] = slot.copy(screenshot = screenshotUri)
-        }
-
-        return saveStateSlots.toList()
+    private companion object {
+        const val LAST_MANUAL_SLOT = 8
     }
 
-    override fun getRomQuickSaveStateSlot(rom: Rom): SaveStateSlot {
-        val quickSaveStateDocument = getRomQuickSaveStateFile(rom)
-        val saveStateExists = quickSaveStateDocument != null
-        val lastModified = quickSaveStateDocument?.let { Date(it.lastModified) }
-        val slot = SaveStateSlot(SaveStateSlot.QUICK_SAVE_SLOT, saveStateExists, lastModified, null)
-        val screenshotUri = saveStateScreenshotProvider.getRomSaveStateScreenshotUri(rom, slot)
-        return slot.copy(screenshot = screenshotUri)
+    override fun getRomSaveStates(rom: Rom): List<SaveStateSlot> {
+        val existingSlots = getExistingSaveStateSlots(rom) ?: return emptyList()
+        return (0..LAST_MANUAL_SLOT).map { existingSlots[it] ?: emptySlot(it) }
+    }
+
+    override fun getRomLoadableSaveStates(rom: Rom): List<SaveStateSlot> {
+        val existingSlots = getExistingSaveStateSlots(rom) ?: return emptyList()
+        val manualSlots = (1..LAST_MANUAL_SLOT).map { existingSlots[it] ?: emptySlot(it) }
+        return sortedQuickSlots(existingSlots) + listOfNotNull(existingSlots[SaveStateSlot.AUTO_SAVE_SLOT]) + manualSlots
+    }
+
+    override fun getRomQuickSaveStateSlots(rom: Rom): List<SaveStateSlot> {
+        return sortedQuickSlots(getExistingSaveStateSlots(rom).orEmpty())
+    }
+
+    override fun getRomNextQuickSaveStateSlot(rom: Rom): SaveStateSlot {
+        val existingSlots = getExistingSaveStateSlots(rom).orEmpty()
+        val extraSlots = settingsRepository.getRollingQuickSaveCount() - 1
+        val ringSlots = listOf(SaveStateSlot.QUICK_SAVE_SLOT) + (SaveStateSlot.FIRST_ROLLING_SLOT until SaveStateSlot.FIRST_ROLLING_SLOT + extraSlots)
+
+        val nextSlot = ringSlots.firstOrNull { it !in existingSlots }
+            ?: ringSlots.minBy { existingSlots.getValue(it).lastUsedDate!! }
+        return existingSlots[nextSlot] ?: emptySlot(nextSlot)
+    }
+
+    private fun sortedQuickSlots(existingSlots: Map<Int, SaveStateSlot>): List<SaveStateSlot> {
+        return existingSlots.values
+            .filter { it.isQuickSlot }
+            .sortedByDescending { it.lastUsedDate }
+            .ifEmpty { listOf(emptySlot(SaveStateSlot.QUICK_SAVE_SLOT)) }
+    }
+
+    private fun emptySlot(slot: Int) = SaveStateSlot(slot, false, null, null)
+
+    private fun getExistingSaveStateSlots(rom: Rom): Map<Int, SaveStateSlot>? {
+        val saveStateDirectoryDocument = getSaveStateDirectoryDocument(rom) ?: return null
+        val romFileName = getRomFileNameWithoutExtension(rom) ?: return null
+
+        val fileNameRegex = "${Regex.escape(romFileName)}\\.ml\\d+".toRegex()
+        return listSaveStateFiles(saveStateDirectoryDocument) { it.matches(fileNameRegex) }.mapNotNull {
+            val slotNumber = it.name.substringAfterLast(".ml").toIntOrNull() ?: return@mapNotNull null
+            val slot = SaveStateSlot(slotNumber, true, Date(it.lastModified), null)
+            val screenshotUri = saveStateScreenshotProvider.getRomSaveStateScreenshotUri(rom, slot)
+            slotNumber to slot.copy(screenshot = screenshotUri)
+        }.toMap()
     }
 
     override fun getRomSaveStateUri(rom: Rom, saveState: SaveStateSlot): Uri {
@@ -85,14 +109,6 @@ class FileSystemSaveStatesRepository(
 
         saveStateFile?.delete()
         saveStateScreenshotProvider.deleteRomSaveStateScreenshot(rom, saveState)
-    }
-
-    private fun getRomQuickSaveStateFile(rom: Rom): SaveStateFile? {
-        val saveStateDirectoryDocument = getSaveStateDirectoryDocument(rom) ?: return null
-        val romFileName = getRomFileNameWithoutExtension(rom) ?: return null
-
-        val quickSaveStateFileName = "$romFileName.ml0"
-        return listSaveStateFiles(saveStateDirectoryDocument) { it == quickSaveStateFileName }.firstOrNull()
     }
 
     private data class SaveStateFile(val uri: Uri, val name: String, val lastModified: Long)

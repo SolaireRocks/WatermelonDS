@@ -7,7 +7,12 @@ import me.magnum.melonds.domain.model.SaveStateSlot
 
 interface SaveStatesRepository {
     fun getRomSaveStates(rom: Rom): List<SaveStateSlot>
-    fun getRomQuickSaveStateSlot(rom: Rom): SaveStateSlot
+    /** The slots that can be loaded: the existing quick saves (newest first), the autosave if it exists and the manual slots. */
+    fun getRomLoadableSaveStates(rom: Rom): List<SaveStateSlot>
+    /** The existing quick saves, newest first. Contains just the empty quick slot if there are none. */
+    fun getRomQuickSaveStateSlots(rom: Rom): List<SaveStateSlot>
+    /** The slot the next quick save should be written to. */
+    fun getRomNextQuickSaveStateSlot(rom: Rom): SaveStateSlot
     fun getRomSaveStateUri(rom: Rom, saveState: SaveStateSlot): Uri
     fun setRomSaveStateScreenshot(rom: Rom, saveState: SaveStateSlot, screenshot: Bitmap)
     fun deleteRomSaveStateScreenshot(rom: Rom, saveState: SaveStateSlot)

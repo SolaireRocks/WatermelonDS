@@ -53,6 +53,7 @@ import me.magnum.melonds.domain.model.RetroArchShaderSourceResolution
 import me.magnum.melonds.domain.model.RomIconFiltering
 import me.magnum.melonds.domain.model.RomViewMode
 import me.magnum.melonds.domain.model.SaveStateLocation
+import me.magnum.melonds.domain.model.SaveStateSlot
 import me.magnum.melonds.domain.model.ScreenAlignment
 import me.magnum.melonds.domain.model.SizeUnit
 import me.magnum.melonds.domain.model.SortingMode
@@ -1574,6 +1575,21 @@ class SharedPreferencesSettingsRepository(
 
     override fun isAutoLoadStateOnLaunchEnabled(): Boolean {
         return preferences.getBoolean("auto_load_state_on_launch", false)
+    }
+
+    override fun getRollingQuickSaveCount(): Int {
+        return if (preferences.getBoolean("rolling_quick_saves_enabled", false)) {
+            preferences.getInt("rolling_quick_saves_count", 3).coerceIn(2, SaveStateSlot.MAX_ROLLING_QUICK_SAVES)
+        } else {
+            1
+        }
+    }
+
+    override fun observeAutoSaveSlotIntervalMinutes(): Flow<Int?> {
+        return combine(
+            getOrCreatePreferenceSharedFlow("auto_save_slot_enabled") { preferences.getBoolean("auto_save_slot_enabled", false) },
+            getOrCreatePreferenceSharedFlow("auto_save_slot_interval") { preferences.getInt("auto_save_slot_interval", 5).coerceAtLeast(1) },
+        ) { enabled, minutes -> minutes.takeIf { enabled } }
     }
 
     override fun getSaveFileDirectory(): Uri? {

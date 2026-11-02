@@ -145,6 +145,7 @@ fun SaveStatesOverlay(
             items(slots, key = { it.slot }) { slot ->
                 SaveStateSlotCard(
                     slot = slot,
+                    quickSlots = slots.filter { it.isQuickSlot },
                     isSaving = isSaving,
                     focusRequester = if (slot.slot == slots.firstOrNull()?.slot) firstFocusRequester else null,
                     onClick = { onSlotPicked(slot) },
@@ -169,6 +170,7 @@ fun SaveStatesOverlay(
 @Composable
 private fun SaveStateSlotCard(
     slot: SaveStateSlot,
+    quickSlots: List<SaveStateSlot>,
     isSaving: Boolean,
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
@@ -179,7 +181,7 @@ private fun SaveStateSlotCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val enabled = slot.exists || isSaving
-    val isQuick = slot.slot == SaveStateSlot.QUICK_SAVE_SLOT
+    val isQuick = slot.isQuickSlot
     val shape = RoundedCornerShape(11.dp)
 
     Column(
@@ -234,10 +236,12 @@ private fun SaveStateSlotCard(
                     .padding(horizontal = 7.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = if (isQuick) {
-                        stringResource(R.string.save_state_slot_quick)
-                    } else {
-                        stringResource(R.string.save_state_slot_number, slot.slot)
+                    text = when {
+                        slot.isAutoSaveSlot -> stringResource(R.string.save_state_slot_auto)
+                        // The quick saves are listed newest first, so the number says how recent each one is
+                        isQuick && quickSlots.size > 1 -> stringResource(R.string.save_state_slot_quick_numbered, quickSlots.indexOf(slot) + 1)
+                        isQuick -> stringResource(R.string.save_state_slot_quick)
+                        else -> stringResource(R.string.save_state_slot_number, slot.slot)
                     },
                     color = Color.White,
                     fontFamily = WatermelonMono,

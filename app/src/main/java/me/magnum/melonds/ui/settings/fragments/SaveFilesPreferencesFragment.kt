@@ -31,6 +31,8 @@ class SaveFilesPreferencesFragment : BasePreferenceFragment(), PreferenceFragmen
         }
 
         hideDependentsWhenInactive("use_rom_dir", "sram_dir", showWhenChecked = false)
+        hideDependentsWhenInactive("rolling_quick_saves_enabled", "rolling_quick_saves_count")
+        hideDependentsWhenInactive("auto_save_slot_enabled", "auto_save_slot_interval")
     }
 
     private fun handleSettingsMirror(uri: Uri, persistDirectory: () -> Unit) {

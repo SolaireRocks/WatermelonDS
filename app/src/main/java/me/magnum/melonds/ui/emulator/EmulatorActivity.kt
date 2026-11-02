@@ -831,7 +831,7 @@ class EmulatorActivity : AppCompatActivity() {
                                 saveStatesData.onSlotPicked(slot)
                             },
                             onSlotDeleted = { slot ->
-                                viewModel.deleteSaveStateSlot(slot) { newSlots ->
+                                viewModel.deleteSaveStateSlot(slot, saveStatesData.isSaving) { newSlots ->
                                     saveStatesOverlayState.value = saveStatesData.copy(slots = newSlots)
                                 }
                             },
@@ -1018,6 +1018,7 @@ class EmulatorActivity : AppCompatActivity() {
                     val (message, duration) = when (it) {
                         ToastEvent.GbaLoadFailed -> getString(R.string.error_load_gba_rom) to Toast.LENGTH_SHORT
                         ToastEvent.QuickSaveSuccessful -> getString(R.string.saved) to Toast.LENGTH_SHORT
+                        ToastEvent.AutoSaveSuccessful -> getString(R.string.auto_save_slot_saved) to Toast.LENGTH_SHORT
                         ToastEvent.QuickLoadSuccessful -> getString(R.string.loaded) to Toast.LENGTH_SHORT
                         is ToastEvent.ScreenshotSaved -> getString(R.string.screenshot_saved, it.fileName) to Toast.LENGTH_SHORT
                         ToastEvent.ScreenshotFailed -> getString(R.string.screenshot_failed) to Toast.LENGTH_LONG

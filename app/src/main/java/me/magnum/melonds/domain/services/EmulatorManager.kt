@@ -59,6 +59,11 @@ interface EmulatorManager {
 
     suspend fun loadRewindState(rewindSaveState: RewindSaveState): Boolean
 
+    fun isEmulatorPaused(): Boolean
+
+    /** Increases every time a pause is requested, so that a background save can tell if the emulator should stay paused after it. */
+    fun getPauseRequestCount(): Long
+
     suspend fun saveState(saveStateFileUri: Uri): Boolean
 
     suspend fun loadState(saveStateFileUri: Uri): Boolean

@@ -279,6 +279,8 @@
     <string name="external_hint_open">Open</string>
     <string name="external_hint_favorite">Favorite</string>
     <string name="save_state_slot_quick">QUICK</string>
+    <string name="save_state_slot_quick_numbered">QUICK %1$d</string>
+    <string name="save_state_slot_auto">AUTO</string>
     <string name="save_state_slot_number">SLOT %1$d</string>
     <string name="save_state_empty_slot">Empty slot</string>
     <string name="cheats_footer_note">CHEATS APPLY ON RESUME · NOT AVAILABLE IN HARDCORE MODE</string>
@@ -446,6 +448,13 @@
     <string name="auto_save_state_on_exit_summary">Automatically saves quick slot when exiting a ROM</string>
     <string name="auto_load_state_on_launch">Auto load state on launch</string>
     <string name="auto_load_state_on_launch_summary">Automatically loads quick slot when launching a ROM</string>
+    <string name="rolling_quick_saves">Rolling quick saves</string>
+    <string name="rolling_quick_saves_summary">Each quick save replaces the oldest one instead of the last one. Quick load uses the newest, and the others are in Load state</string>
+    <string name="rolling_quick_saves_count">Number of quick saves to keep</string>
+    <string name="auto_save_slot">Autosave slot</string>
+    <string name="auto_save_slot_summary">Regularly saves to its own slot while playing, shown in Load state. Paused time isn\'t counted</string>
+    <string name="auto_save_slot_interval">Minutes between autosaves</string>
+    <string name="auto_save_slot_saved">Autosaved</string>
     <string name="input">Input</string>
     <string name="input_summary">Key mapping, layouts, haptic feedback</string>
     <string name="key_mapping">Key mapping</string>

@@ -34,6 +34,11 @@ Frontend actions (pause, swap screens, fast-forward, etc.) are `Input` entries w
 
 Existing extras: 8-way D-pad (`DPAD_DIAGONAL`), turbo A/B/X/Y, two-button combos (picked via the "Multi-button…" entry; `BUTTON_COMBO_*` aren't listed individually), and Fast Forward 1–3 with per-button speeds in General settings (native `setFastForwardSpeedOverride`).
 
+## Rolling quick saves and the autosave slot
+- Settings live in Save files settings (`pref_save_files.xml`). Files are `<rom>.ml<slot>`: `0` quick, `1`-`8` manual, `9` autosave (`SaveStateSlot.AUTO_SAVE_SLOT`), `10`-`18` the extra rolling quick saves. The Save state menu only lists `0`-`8`; the Load state menu (`getRomLoadableSaveStates`) also lists the existing quick saves newest first and the autosave.
+- A quick save goes to the first empty slot in the ring, otherwise the oldest by file date (`getRomNextQuickSaveStateSlot`). A quick load takes the newest valid one whatever the setting says (`getRomQuickLoadSlot`), so with no extra files it behaves like a single quick slot. Lowering the count or turning rolling off doesn't delete anything.
+- The autosave timer (`startAutoSaveSlotTimer`) only counts time while native `paused` is false. `saveToAutoSaveSlot` must not resume if something asked for a pause during the save (`getPauseRequestCount`), or the game would unpause under the pause menu.
+
 ## Screenshots and gameplay recording
 - On-screen buttons: `BUTTON_SCREENSHOT` (`Input.SCREENSHOT`), `BUTTON_RECORD` (`Input.TOGGLE_RECORDING`, toggleable: red while recording) and `BUTTON_SAVE_CLIP` (`Input.SAVE_CLIP`). All three can also be mapped to controller keys.
 - Settings live in Input settings under "Screenshots and recording" (`pref_input.xml`, logic in `InputPreferencesFragment`): screenshot size (nearest-neighbour upscale), recordings folder, recording resolution/frame rate, clip length (default 30 s) and "Delete unsaved recordings".

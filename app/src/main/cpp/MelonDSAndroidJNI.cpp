@@ -2537,6 +2537,17 @@ Java_me_magnum_melonds_MelonEmulator_resumeEmulation(JNIEnv* env, jobject thiz)
     pthread_mutex_unlock(&emuThreadMutex);
 }
 
+JNIEXPORT jboolean JNICALL
+Java_me_magnum_melonds_MelonEmulator_isEmulationPaused(JNIEnv* env, jobject thiz)
+{
+    pthread_mutex_lock(&emuThreadMutex);
+    const bool notRunning = paused
+        || !started.load(std::memory_order_acquire)
+        || stop.load(std::memory_order_acquire);
+    pthread_mutex_unlock(&emuThreadMutex);
+    return notRunning ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_requestRtcSync(JNIEnv* env, jobject thiz)
 {

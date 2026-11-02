@@ -231,6 +231,7 @@ private const val RA_TRACE_TAG = "RATrace"
 private const val RA_IDENTITY_TAG = "RAIdentity"
 private const val RA_SUBMISSION_TAG = "RASubmission"
 private const val AUTO_STATE_TAG = "AutoState"
+private const val AUTO_SAVE_SLOT_TICK_MS = 1000L
 private const val SAVESTATE_HEADER_SIZE = 12
 private const val SAVESTATE_MAJOR = 13
 private const val SAVESTATE_MINOR = 1
@@ -271,6 +272,7 @@ class EmulatorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val sessionCoroutineScope = EmulatorSessionCoroutineScope()
+    private val saveStateSlotMutex = Mutex()
     private var screenshotJob: Job? = null
     private var recordingJob: Job? = null
     private var clipJob: Job? = null
@@ -901,6 +903,7 @@ class EmulatorViewModel @Inject constructor(
                     DebugCommandStateStore.onRunningRomReady(rom.uri, rom.name)
                     startTrackingFps()
                     startTrackingPlayTime(rom)
+                    startAutoSaveSlotTimer(rom)
                 }
             }
         } catch (exception: Throwable) {
@@ -2196,7 +2199,7 @@ class EmulatorViewModel @Inject constructor(
                         if (emulatorSession.areSaveStateLoadsAllowed()) {
                             (_emulatorState.value as? EmulatorState.RunningRom)?.let {
                                 sessionCoroutineScope.launch {
-                                    val saveStateSlots = getRomSaveStateSlots(it.rom)
+                                    val saveStateSlots = getRomLoadableSaveStateSlots(it.rom)
                                     _uiEvent.emit(EmulatorUiEvent.ShowRomSaveStates(saveStateSlots, EmulatorUiEvent.ShowRomSaveStates.Reason.LOADING))
                                 }
                             }
@@ -2342,12 +2345,16 @@ class EmulatorViewModel @Inject constructor(
         when (currentState) {
             is EmulatorState.RunningRom -> {
                 sessionCoroutineScope.launch {
-                    emulatorManager.pauseEmulator()
-                    val quickSlot = getRomQuickSaveStateSlot(currentState.rom)
-                    if (saveRomState(currentState.rom, quickSlot)) {
-                        _toastEvent.emit(ToastEvent.QuickSaveSuccessful)
+                    saveStateSlotMutex.withLock {
+                        emulatorManager.pauseEmulator()
+                        val quickSlot = getRomNextQuickSaveStateSlot(currentState.rom)
+                        if (saveRomState(currentState.rom, quickSlot)) {
+                            _toastEvent.emit(ToastEvent.QuickSaveSuccessful)
+                        } else {
+                            _toastEvent.emit(ToastEvent.StateSaveFailed)
+                        }
+                        resumeEmulatorIfSessionCanRun()
                     }
-                    resumeEmulatorIfSessionCanRun()
                 }
             }
             is EmulatorState.RunningFirmware -> {
@@ -2366,7 +2373,7 @@ class EmulatorViewModel @Inject constructor(
                 if (emulatorSession.areSaveStateLoadsAllowed()) {
                     sessionCoroutineScope.launch {
                         emulatorManager.pauseEmulator()
-                        val quickSlot = getRomQuickSaveStateSlot(currentState.rom)
+                        val quickSlot = getRomQuickLoadSlot(currentState.rom)
                         if (loadRomState(currentState.rom, quickSlot)) {
                             _toastEvent.emit(ToastEvent.QuickLoadSuccessful)
                         }
@@ -2489,12 +2496,12 @@ class EmulatorViewModel @Inject constructor(
         }
     }
 
-    fun deleteSaveStateSlot(slot: SaveStateSlot, onSlotsUpdated: (List<SaveStateSlot>) -> Unit) {
+    fun deleteSaveStateSlot(slot: SaveStateSlot, isSaving: Boolean, onSlotsUpdated: (List<SaveStateSlot>) -> Unit) {
         (_emulatorState.value as? EmulatorState.RunningRom)?.let {
             sessionCoroutineScope.launch {
                 val updatedSlots = withContext(Dispatchers.IO) {
                     saveStatesRepository.deleteRomSaveState(it.rom, slot)
-                    saveStatesRepository.getRomSaveStates(it.rom)
+                    if (isSaving) saveStatesRepository.getRomSaveStates(it.rom) else saveStatesRepository.getRomLoadableSaveStates(it.rom)
                 }
                 onSlotsUpdated(updatedSlots)
             }
@@ -2541,7 +2548,7 @@ class EmulatorViewModel @Inject constructor(
             return
         }
 
-        val quickSlot = getRomQuickSaveStateSlot(rom)
+        val quickSlot = getRomQuickLoadSlot(rom)
         if (!quickSlot.exists) {
             Log.i(AUTO_STATE_TAG, "auto-load skipped: quick slot missing")
             return
@@ -2630,17 +2637,77 @@ class EmulatorViewModel @Inject constructor(
             return
         }
 
-        emulatorManager.pauseEmulator()
-        val quickSlot = getRomQuickSaveStateSlot(rom)
-        Log.i(AUTO_STATE_TAG, "auto-save start: slot=${quickSlot.slot} rom=${rom.name}")
-        val didSave = saveRomState(rom, quickSlot)
-        if (didSave) {
-            _toastEvent.tryEmit(ToastEvent.QuickSaveSuccessful)
-            Log.i(AUTO_STATE_TAG, "auto-save success: slot=${quickSlot.slot} rom=${rom.name}")
-        } else {
-            _toastEvent.tryEmit(ToastEvent.StateSaveFailed)
-            Log.w(AUTO_STATE_TAG, "auto-save failed: slot=${quickSlot.slot} rom=${rom.name}")
+        saveStateSlotMutex.withLock {
+            emulatorManager.pauseEmulator()
+            val quickSlot = getRomNextQuickSaveStateSlot(rom)
+            Log.i(AUTO_STATE_TAG, "auto-save start: slot=${quickSlot.slot} rom=${rom.name}")
+            val didSave = saveRomState(rom, quickSlot)
+            if (didSave) {
+                _toastEvent.tryEmit(ToastEvent.QuickSaveSuccessful)
+                Log.i(AUTO_STATE_TAG, "auto-save success: slot=${quickSlot.slot} rom=${rom.name}")
+            } else {
+                _toastEvent.tryEmit(ToastEvent.StateSaveFailed)
+                Log.w(AUTO_STATE_TAG, "auto-save failed: slot=${quickSlot.slot} rom=${rom.name}")
+            }
         }
+    }
+
+    private fun startAutoSaveSlotTimer(rom: Rom) {
+        sessionCoroutineScope.launch {
+            settingsRepository.observeAutoSaveSlotIntervalMinutes().distinctUntilChanged().collectLatest { minutes ->
+                if (minutes == null) {
+                    return@collectLatest
+                }
+
+                // Only counts the time spent playing. The menus and the app being in the background don't use up the interval
+                val intervalMs = minutes * 60_000L
+                var playedMs = 0L
+                while (true) {
+                    delay(AUTO_SAVE_SLOT_TICK_MS)
+                    if (emulatorManager.isEmulatorPaused()) {
+                        continue
+                    }
+                    playedMs += AUTO_SAVE_SLOT_TICK_MS
+                    if (playedMs >= intervalMs) {
+                        playedMs = 0L
+                        saveToAutoSaveSlot(rom)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun saveToAutoSaveSlot(rom: Rom) {
+        saveStateSlotMutex.withLock {
+            if (emulatorManager.isEmulatorPaused()) {
+                return
+            }
+
+            val pauseRequestCount = emulatorManager.getPauseRequestCount()
+            val autoSaveSlot = SaveStateSlot(SaveStateSlot.AUTO_SAVE_SLOT, false, null, null)
+            val didSave = try {
+                saveRomState(rom, autoSaveSlot)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (exception: Exception) {
+                Log.w(AUTO_STATE_TAG, "Failed to save to the autosave slot", exception)
+                false
+            }
+
+            // Something else pausing during the save (like the pause menu opening) has to stay paused
+            if (emulatorManager.getPauseRequestCount() == pauseRequestCount) {
+                resumeEmulatorIfSessionCanRun()
+            }
+            _toastEvent.emit(if (didSave) ToastEvent.AutoSaveSuccessful else ToastEvent.StateSaveFailed)
+        }
+    }
+
+    /**
+     * The newest quick save. One that was left incomplete by a failed save is skipped in favour of the one before it.
+     */
+    private suspend fun getRomQuickLoadSlot(rom: Rom): SaveStateSlot {
+        val quickSlots = getRomQuickSaveStateSlots(rom)
+        return quickSlots.firstOrNull { it.exists && isSavestateHeaderValid(getRomSaveStateUri(rom, it)) } ?: quickSlots.first()
     }
 
     private fun startObservingRuntimeInputLayoutConfiguration() {
@@ -3173,8 +3240,16 @@ class EmulatorViewModel @Inject constructor(
         saveStatesRepository.getRomSaveStates(rom)
     }
 
-    private suspend fun getRomQuickSaveStateSlot(rom: Rom): SaveStateSlot = withContext(Dispatchers.IO) {
-        saveStatesRepository.getRomQuickSaveStateSlot(rom)
+    private suspend fun getRomLoadableSaveStateSlots(rom: Rom): List<SaveStateSlot> = withContext(Dispatchers.IO) {
+        saveStatesRepository.getRomLoadableSaveStates(rom)
+    }
+
+    private suspend fun getRomQuickSaveStateSlots(rom: Rom): List<SaveStateSlot> = withContext(Dispatchers.IO) {
+        saveStatesRepository.getRomQuickSaveStateSlots(rom)
+    }
+
+    private suspend fun getRomNextQuickSaveStateSlot(rom: Rom): SaveStateSlot = withContext(Dispatchers.IO) {
+        saveStatesRepository.getRomNextQuickSaveStateSlot(rom)
     }
 
     private suspend fun getRomSaveStateUri(rom: Rom, slot: SaveStateSlot): Uri = withContext(Dispatchers.IO) {

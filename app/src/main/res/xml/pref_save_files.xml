@@ -48,4 +48,40 @@
             android:summary="@string/auto_load_state_on_launch_summary"
             android:defaultValue="false"
             app:iconSpaceReserved="false" />
+
+    <SwitchPreference
+            android:key="rolling_quick_saves_enabled"
+            android:title="@string/rolling_quick_saves"
+            android:summary="@string/rolling_quick_saves_summary"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+
+    <SeekBarPreference
+            android:key="rolling_quick_saves_count"
+            android:title="@string/rolling_quick_saves_count"
+            android:dependency="rolling_quick_saves_enabled"
+            app:iconSpaceReserved="false"
+            app:showSeekBarValue="true"
+            app:updatesContinuously="true"
+            android:defaultValue="3"
+            app:min="2"
+            android:max="10" />
+
+    <SwitchPreference
+            android:key="auto_save_slot_enabled"
+            android:title="@string/auto_save_slot"
+            android:summary="@string/auto_save_slot_summary"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+
+    <SeekBarPreference
+            android:key="auto_save_slot_interval"
+            android:title="@string/auto_save_slot_interval"
+            android:dependency="auto_save_slot_enabled"
+            app:iconSpaceReserved="false"
+            app:showSeekBarValue="true"
+            app:updatesContinuously="true"
+            android:defaultValue="5"
+            app:min="1"
+            android:max="60" />
 </PreferenceScreen>

@@ -11,6 +11,7 @@ sealed class ToastEvent {
     data object InvalidAutoLoadState : ToastEvent()
     data object StateStateDoesNotExist : ToastEvent()
     data object QuickSaveSuccessful : ToastEvent()
+    data object AutoSaveSuccessful : ToastEvent()
     data object QuickLoadSuccessful : ToastEvent()
     data class ScreenshotSaved(val fileName: String) : ToastEvent()
     data object ScreenshotFailed : ToastEvent()

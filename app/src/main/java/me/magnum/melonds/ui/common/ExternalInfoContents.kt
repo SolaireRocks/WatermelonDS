@@ -561,7 +561,7 @@ fun ExternalSaveStatesInfo(
                             .background(Color.White.copy(alpha = 0.06f))
                             .border(
                                 width = 2.dp,
-                                color = if (slot.slot == me.magnum.melonds.domain.model.SaveStateSlot.QUICK_SAVE_SLOT && slot.exists) {
+                                color = if (slot.isQuickSlot && slot.exists) {
                                     Color(0xFFF44336)
                                 } else {
                                     Color.White.copy(alpha = 0.12f)
@@ -586,7 +586,11 @@ fun ExternalSaveStatesInfo(
                                 .padding(horizontal = 6.dp, vertical = 2.dp),
                         ) {
                             Text(
-                                text = if (slot.slot == me.magnum.melonds.domain.model.SaveStateSlot.QUICK_SAVE_SLOT) "Q" else slot.slot.toString(),
+                                text = when {
+                                    slot.isQuickSlot -> "Q"
+                                    slot.isAutoSaveSlot -> "A"
+                                    else -> slot.slot.toString()
+                                },
                                 color = Color.White,
                                 fontFamily = WatermelonMono,
                                 fontSize = 8.5.sp,

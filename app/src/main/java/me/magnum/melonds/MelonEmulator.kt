@@ -255,6 +255,8 @@ object MelonEmulator {
 
 	external fun resumeEmulation()
 
+	external fun isEmulationPaused(): Boolean
+
     external fun requestRtcSync()
 
     external fun debugStepFrame(): Boolean

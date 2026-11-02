@@ -139,6 +139,10 @@ interface SettingsRepository {
     fun useSrmExtensionForSaveFiles(): Boolean
     fun isAutoSaveStateOnExitEnabled(): Boolean
     fun isAutoLoadStateOnLaunchEnabled(): Boolean
+    /** How many quick saves to keep. 1 when rolling quick saves are disabled. */
+    fun getRollingQuickSaveCount(): Int
+    /** The minutes between saves to the autosave slot, or null when the autosave slot is disabled. */
+    fun observeAutoSaveSlotIntervalMinutes(): Flow<Int?>
     fun getSaveFileDirectory(): Uri?
     fun getScreenshotDirectory(): Uri?
     fun getScreenshotScale(): Int
