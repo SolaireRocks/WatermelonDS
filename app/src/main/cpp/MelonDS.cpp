@@ -8,6 +8,7 @@
 #include <sys/system_properties.h>
 #include <oboe/Oboe.h>
 #include "EmulatorArgsBuilder.h"
+#include "FastForwardMusic.h"
 #include "MelonDS.h"
 #include "MelonDSAudio.h"
 #include "OboeCallback.h"
@@ -1563,6 +1564,16 @@ namespace MelonDSAndroid
     bool isMuteOnFastForward()
     {
         return muteOnFastForward.load(std::memory_order_acquire);
+    }
+
+    void setNormalSpeedMusicOnFastForward(bool enabled)
+    {
+        FastForwardMusic::setNormalSpeedMusicEnabled(enabled);
+    }
+
+    void setSfxOnFastForwardMusic(bool enabled)
+    {
+        FastForwardMusic::setSfxEnabled(enabled);
     }
 
     void setAudioOutputSpeedHint(double speed)

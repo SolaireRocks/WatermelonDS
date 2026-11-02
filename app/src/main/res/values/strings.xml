@@ -434,6 +434,10 @@
     <string name="volume_percentage">%1$d%%</string>
     <string name="audio_mute_on_fast_forward">Mute on Fast Forward</string>
     <string name="audio_mute_on_fast_forward_summary">No sound while fast forward is active</string>
+    <string name="audio_normal_speed_music_on_fast_forward">Normal-speed music on Fast Forward</string>
+    <string name="audio_normal_speed_music_on_fast_forward_summary">Plays the game\'s music at normal (1x) speed while fast forwarding and follows song changes</string>
+    <string name="audio_sfx_on_fast_forward_music">Allow sound effects during Fast Forward music</string>
+    <string name="audio_sfx_on_fast_forward_music_summary">Plays sound effects at fast-forward speed while music plays at normal speed</string>
     <string name="audio_latency">Audio latency</string>
     <string name="microphone_source">Microphone source</string>
     <string name="controller_layout">Layouts</string>

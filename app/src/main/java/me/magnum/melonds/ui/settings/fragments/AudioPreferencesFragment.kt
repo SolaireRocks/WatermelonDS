@@ -7,6 +7,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SeekBarPreference
+import androidx.preference.SwitchPreference
 import me.magnum.melonds.R
 import me.magnum.melonds.domain.model.MicSource
 import me.magnum.melonds.extensions.isMicrophonePermissionGranted
@@ -46,7 +47,32 @@ class AudioPreferencesFragment : BasePreferenceFragment(), PreferenceFragmentTit
             }
         }
 
-        hideDependentsWhenInactive("sound_enabled", "audio_interpolation", "audio_bitrate", "volume", "audio_latency")
+        val muteOnFastForwardPreference = findPreference<SwitchPreference>("audio_mute_on_fast_forward")
+        val normalSpeedMusicPreference = findPreference<SwitchPreference>("audio_normal_speed_music_on_fast_forward")
+        muteOnFastForwardPreference?.setOnPreferenceChangeListener { _, newValue ->
+            if (newValue as Boolean) {
+                normalSpeedMusicPreference?.isChecked = false
+            }
+            true
+        }
+        normalSpeedMusicPreference?.setOnPreferenceChangeListener { _, newValue ->
+            if (newValue as Boolean) {
+                muteOnFastForwardPreference?.isChecked = false
+            }
+            true
+        }
+
+        hideDependentsWhenInactive(
+            "sound_enabled",
+            "audio_interpolation",
+            "audio_bitrate",
+            "volume",
+            "audio_mute_on_fast_forward",
+            "audio_normal_speed_music_on_fast_forward",
+            "audio_sfx_on_fast_forward_music",
+            "audio_latency"
+        )
+        hideDependentsWhenInactive("audio_normal_speed_music_on_fast_forward", "audio_sfx_on_fast_forward_music")
     }
 
     private fun updateVolumePreferenceSummary(volumePreference: SeekBarPreference, volume: Int) {

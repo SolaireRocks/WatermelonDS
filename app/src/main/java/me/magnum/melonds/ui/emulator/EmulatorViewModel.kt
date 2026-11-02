@@ -604,6 +604,16 @@ class EmulatorViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            settingsRepository.observeNormalSpeedMusicOnFastForwardEnabled().collectLatest {
+                emulatorManager.setNormalSpeedMusicOnFastForward(it)
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.observeSfxOnFastForwardMusicEnabled().collectLatest {
+                emulatorManager.setSfxOnFastForwardMusic(it)
+            }
+        }
+        viewModelScope.launch {
             settingsRepository.observeExternalDisplayKeepAspectRationEnabled().collectLatest {
                 _externalDisplayKeepAspectRatioEnabled.value = it
             }

@@ -65,6 +65,8 @@ struct AudioSettings
     bool soundEnabled;
 
     bool muteOnFastForward;
+    bool normalSpeedMusicOnFastForward = false;
+    bool sfxOnFastForwardMusic = false;
     int volume;
     int audioInterpolation;
     int audioBitrate;

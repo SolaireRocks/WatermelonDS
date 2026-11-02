@@ -1,0 +1,115 @@
+diff --git a/src/NDSCart.cpp b/src/NDSCart.cpp
+--- a/src/NDSCart.cpp
++++ b/src/NDSCart.cpp
+@@ -27,6 +27,11 @@
+ #include "FATStorage.h"
+ #include "Utils.h"
+ 
++namespace MelonDSAndroid::FastForwardMusic
++{
++void onRomRead(melonDS::u32 addr, melonDS::u32 len) noexcept;
++}
++
+ namespace melonDS
+ {
+ using Platform::Log;
+@@ -376,6 +381,7 @@ void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset) const
+     if ((addr+len) > ROMLength)
+         len = ROMLength - addr;
+ 
++    MelonDSAndroid::FastForwardMusic::onRomRead(addr, len);
+     memcpy(data+offset, ROM.get()+addr, len);
+ }
+ 
+diff --git a/src/SPU.cpp b/src/SPU.cpp
+--- a/src/SPU.cpp
++++ b/src/SPU.cpp
+@@ -29,6 +29,28 @@
+ #include "DSi.h"
+ #include "DSi_I2S.h"
+ #include "SPU.h"
++
++namespace MelonDSAndroid::FastForwardMusic
++{
++void onSpuChannelStart(
++    melonDS::u32 channelNum,
++    melonDS::u32 cnt,
++    melonDS::u32 srcAddr,
++    melonDS::u16 timerReload,
++    melonDS::u32 loopPos,
++    melonDS::u32 length,
++    const melonDS::u32* fifo) noexcept;
++void filterSpuSpeakerOutput(
++    melonDS::u16 spuCnt,
++    melonDS::u8 masterVolume,
++    melonDS::u16 bias,
++    bool applyBias,
++    bool degrade10Bit,
++    bool mute,
++    melonDS::SPUChannel* channels,
++    const melonDS::s32* channelSamples,
++    melonDS::s16* output) noexcept;
++}
+ #include "AudioOutputExactMath.h"
+ #include "soundtouch/include/SoundTouch.h"
+ 
+@@ -774,6 +796,8 @@ void SPUChannel::Start()
+         FIFO_BufferData();
+         FIFO_BufferData();
+     }
++
++    MelonDSAndroid::FastForwardMusic::onSpuChannelStart(Num, Cnt, SrcAddr, TimerReload, LoopPos, Length, FIFO);
+ }
+ 
+ void SPUChannel::NextSample_PCM8()
+@@ -1180,6 +1204,7 @@ void SPU::Mix(u32 spucycles)
+ {
+     s32 left = 0, right = 0;
+     s32 leftoutput = 0, rightoutput = 0;
++    std::array<s32, 16> channelSamples {};
+ 
+     if (Cnt & (1<<15))
+     {
+@@ -1194,6 +1219,10 @@ void SPU::Mix(u32 spucycles)
+             ch1 = Channels[1].DoRun(spucycles);
+             ch2 = Channels[2].DoRun(spucycles);
+             ch3 = Channels[3].DoRun(spucycles);
++            channelSamples[0] = ch0;
++            channelSamples[1] = ch1;
++            channelSamples[2] = ch2;
++            channelSamples[3] = ch3;
+ 
+             add01 = false;
+             add23 = false;
+@@ -1209,12 +1238,12 @@ void SPU::Mix(u32 spucycles)
+                 SPUChannel* chan = &Channels[i];
+ 
+                 s32 channel = chan->DoRun(spucycles);
++                channelSamples[i] = channel;
+                 chan->PanOutput(channel, left, right);
+             }
+         }
+         else
+         {
+-            std::array<s32, 16> channelSamples;
+             for (u32 i = 0; i < channelSamples.size(); i++)
+                 channelSamples[i] = Channels[i].DoRun(0);
+ 
+@@ -1379,6 +1408,17 @@ void SPU::Mix(u32 spucycles)
+         output[0] = (s16)std::clamp(leftoutput, -0x8000, 0x7FFF);
+         output[1] = (s16)std::clamp(rightoutput, -0x8000, 0x7FFF);
+     }
++
++    MelonDSAndroid::FastForwardMusic::filterSpuSpeakerOutput(
++        Cnt,
++        MasterVolume,
++        Bias,
++        ApplyBias,
++        Degrade10Bit,
++        Mute,
++        Channels.data(),
++        channelSamples.data(),
++        output);
+ 
+     NDS.Mic.Advance(spucycles << 1);
+ 

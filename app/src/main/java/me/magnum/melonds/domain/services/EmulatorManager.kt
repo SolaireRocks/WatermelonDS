@@ -54,6 +54,8 @@ interface EmulatorManager {
     fun setFrameskipConfiguration(configuration: FrameskipConfiguration)
     fun setVulkanDrsEnabled(enabled: Boolean)
     fun setMuteOnFastForward(enabled: Boolean)
+    fun setNormalSpeedMusicOnFastForward(enabled: Boolean)
+    fun setSfxOnFastForwardMusic(enabled: Boolean)
     fun getVulkanRenderedInternalResolution(): Int
     fun unloadRetroAchievementsData()
 
