@@ -974,6 +974,8 @@ Java_me_magnum_melonds_MelonEmulator_setupEmulatorInternal(JNIEnv* env, jobject 
                                std::memory_order_release);
     vulkanDrsEnabled.store(finalEmulatorConfiguration.vulkanDrsEnabled, std::memory_order_release);
     MelonDSAndroid::setMuteOnFastForward(finalEmulatorConfiguration.audioSettings.muteOnFastForward);
+    MelonDSAndroid::setNormalSpeedMusicOnFastForward(finalEmulatorConfiguration.audioSettings.normalSpeedMusicOnFastForward);
+    MelonDSAndroid::setSfxOnFastForwardMusic(finalEmulatorConfiguration.audioSettings.sfxOnFastForwardMusic);
     globalCameraManager = env->NewGlobalRef(cameraManager);
 
     auto androidEventMessenger = std::make_shared<AndroidMelonEventMessenger>();
@@ -3165,6 +3167,8 @@ Java_me_magnum_melonds_MelonEmulator_updateEmulatorConfiguration(JNIEnv* env, jo
                                std::memory_order_release);
     vulkanDrsEnabled.store(newConfiguration.vulkanDrsEnabled, std::memory_order_release);
     MelonDSAndroid::setMuteOnFastForward(newConfiguration.audioSettings.muteOnFastForward);
+    MelonDSAndroid::setNormalSpeedMusicOnFastForward(newConfiguration.audioSettings.normalSpeedMusicOnFastForward);
+    MelonDSAndroid::setSfxOnFastForwardMusic(newConfiguration.audioSettings.sfxOnFastForwardMusic);
 
     MelonDSAndroid::updateEmulatorConfiguration(std::make_unique<MelonDSAndroid::EmulatorConfiguration>(std::move(newConfiguration)));
 
@@ -3178,6 +3182,18 @@ Java_me_magnum_melonds_MelonEmulator_updateEmulatorConfiguration(JNIEnv* env, jo
     }
     publishCurrentAudioOutputSpeedHint();
     updatePerformanceHintTarget();
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setNormalSpeedMusicOnFastForward(JNIEnv* env, jobject thiz, jboolean enabled)
+{
+    MelonDSAndroid::setNormalSpeedMusicOnFastForward(enabled == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_setSfxOnFastForwardMusic(JNIEnv* env, jobject thiz, jboolean enabled)
+{
+    MelonDSAndroid::setSfxOnFastForwardMusic(enabled == JNI_TRUE);
 }
 }
 

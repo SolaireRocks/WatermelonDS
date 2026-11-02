@@ -24,6 +24,7 @@
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_Soft.h"
 #include "GPU3D_Vulkan.h"
+#include "FastForwardMusic.h"
 #include "MelonDS.h"
 #include "MelonInstance.h"
 #include "ndz/NdzRomLoader.h"
@@ -1589,6 +1590,8 @@ MelonInstance::MelonInstance(int instanceId, std::shared_ptr<EmulatorConfigurati
     retroAchievementsManager = std::make_shared<RetroAchievements::RetroAchievementsManager>(nds);
 
     nds->Reset();
+    if (instanceId == 0)
+        FastForwardMusic::onReset();
     setBatteryLevels();
     setDateTime();
 }
@@ -1600,6 +1603,8 @@ MelonInstance::~MelonInstance()
     VulkanSurfacePresenter::clearPrewarmedRetroArchFilters();
     vulkanOutput = nullptr;
     net->UnregisterInstance(instanceId);
+    if (instanceId == 0)
+        FastForwardMusic::onShutdown();
     delete nds;
 }
 
@@ -1676,6 +1681,8 @@ bool MelonInstance::loadRom(std::string romPath, std::string sramPath)
     }
 
     nds->SetNDSCart(std::move(cart));
+    if (instanceId == 0 && nds->GetNDSCart())
+        FastForwardMusic::onRomLoaded(nds->GetNDSCart()->GetROM(), nds->GetNDSCart()->GetROMLength());
     ndsSave = std::make_unique<SaveManager>(sramPath);
 
     return true;
@@ -1923,6 +1930,8 @@ void MelonInstance::reset()
     }
 
     nds->Reset();
+    if (instanceId == 0)
+        FastForwardMusic::onReset();
     setBatteryLevels();
     setDateTime();
 
@@ -3625,6 +3634,8 @@ u32 MelonInstance::runFrame(bool frameskipSolicitado)
     });
     processExactLiveGuideBeforeRunFrame();
     u32 nLines = nds->RunFrame();
+    if (instanceId == 0)
+        FastForwardMusic::onEmulatorFrame(*nds);
     if (lowLatencyEnabled && currentRenderer == Renderer::Vulkan)
     {
         if (auto* renderer2D = dynamic_cast<GPU2D::SoftRenderer*>(&nds->GPU.GetRenderer2D()))
@@ -7102,6 +7113,8 @@ bool MelonInstance::loadState(Savestate* state)
     const bool loaded = nds->DoSavestate(state);
     if (loaded)
     {
+        if (instanceId == 0)
+            FastForwardMusic::onStateLoaded(*nds);
 
         resetAudioOutputAdaptivo();
         nds->ReleaseScreen();

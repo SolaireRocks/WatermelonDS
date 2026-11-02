@@ -372,6 +372,10 @@ object MelonEmulator {
 
     external fun setMuteOnFastForward(enabled: Boolean)
 
+    external fun setNormalSpeedMusicOnFastForward(enabled: Boolean)
+
+    external fun setSfxOnFastForwardMusic(enabled: Boolean)
+
     external fun getVulkanRenderedInternalResolution(): Int
 
     external fun setMicrophoneEnabled(enabled: Boolean)

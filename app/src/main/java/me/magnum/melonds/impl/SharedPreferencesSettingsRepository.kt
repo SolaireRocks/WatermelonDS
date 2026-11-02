@@ -369,6 +369,8 @@ class SharedPreferencesSettingsRepository(
                 folderPath = File(context.filesDir, "dldi/sync").absolutePath,
             ),
             muteOnFastForward = isMuteOnFastForwardEnabled(),
+            normalSpeedMusicOnFastForward = isNormalSpeedMusicOnFastForwardEnabled(),
+            sfxOnFastForwardMusic = isSfxOnFastForwardMusicEnabled(),
             lowLatencyEnabled = preferences.getBoolean("video_low_latency", false),
             rtcOffsetMinutes = preferences.getInt("rtc_offset_minutes", 0).coerceIn(-1440, 1440),
             wfcSettingsPath = preferences.getString("wfc_settings_file", null),
@@ -1509,6 +1511,26 @@ class SharedPreferencesSettingsRepository(
 
     override fun observeMuteOnFastForwardEnabled(): Flow<Boolean> {
         return getOrCreatePreferenceSharedFlow("audio_mute_on_fast_forward") { isMuteOnFastForwardEnabled() }
+    }
+
+    override fun isNormalSpeedMusicOnFastForwardEnabled(): Boolean {
+        return preferences.getBoolean("audio_normal_speed_music_on_fast_forward", false)
+    }
+
+    override fun observeNormalSpeedMusicOnFastForwardEnabled(): Flow<Boolean> {
+        return getOrCreatePreferenceSharedFlow("audio_normal_speed_music_on_fast_forward") {
+            isNormalSpeedMusicOnFastForwardEnabled()
+        }
+    }
+
+    override fun isSfxOnFastForwardMusicEnabled(): Boolean {
+        return preferences.getBoolean("audio_sfx_on_fast_forward_music", false)
+    }
+
+    override fun observeSfxOnFastForwardMusicEnabled(): Flow<Boolean> {
+        return getOrCreatePreferenceSharedFlow("audio_sfx_on_fast_forward_music") {
+            isSfxOnFastForwardMusicEnabled()
+        }
     }
 
     private fun getRewindPeriod(): Int {

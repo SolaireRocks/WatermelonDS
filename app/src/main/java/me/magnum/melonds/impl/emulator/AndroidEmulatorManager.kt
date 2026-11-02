@@ -682,6 +682,14 @@ class AndroidEmulatorManager(
         MelonEmulator.setMuteOnFastForward(enabled)
     }
 
+    override fun setNormalSpeedMusicOnFastForward(enabled: Boolean) {
+        MelonEmulator.setNormalSpeedMusicOnFastForward(enabled)
+    }
+
+    override fun setSfxOnFastForwardMusic(enabled: Boolean) {
+        MelonEmulator.setSfxOnFastForwardMusic(enabled)
+    }
+
     override fun getVulkanRenderedInternalResolution(): Int {
         return MelonEmulator.getVulkanRenderedInternalResolution()
     }

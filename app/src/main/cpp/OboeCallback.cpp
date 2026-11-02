@@ -1,4 +1,5 @@
 #include "OboeCallback.h"
+#include "FastForwardMusic.h"
 #include "MelonDS.h"
 #include "types.h"
 #include <algorithm>
@@ -54,7 +55,14 @@ OboeCallback::onAudioReady(oboe::AudioStream *stream, void *audioData, int32_t n
         }
     }
 
-    const bool mutedForFastForward = MelonDSAndroid::isFastForwardActive() && MelonDSAndroid::isMuteOnFastForward();
+    const bool fastForwardActive = MelonDSAndroid::isFastForwardActive();
+    const bool muteOnFastForward = MelonDSAndroid::isMuteOnFastForward();
+    const bool handledByFastForwardMusic = currentInstance && MelonDSAndroid::FastForwardMusic::processAudioOutput(
+        static_cast<s16*>(audioData),
+        numFrames,
+        fastForwardActive,
+        muteOnFastForward);
+    const bool mutedForFastForward = !handledByFastForwardMusic && fastForwardActive && muteOnFastForward;
     if (mutedForFastForward)
     {
 
