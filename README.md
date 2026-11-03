@@ -46,6 +46,56 @@ Everything from the upstream Android port, plus:
 
 The core is kept in sync with melonDS 1.0 and later upstream changes.
 
+# About this fork
+This is a fork of [WatermelonDS](https://github.com/SapphireRhodonite/WatermelonDS). Its purpose is to add features
+that weren't included in the official release. Everything above still applies. The sections below list what this fork
+adds on top of it.
+
+Builds from this fork are published to the
+[Nightly Build release](https://github.com/SolaireRocks/WatermelonDS/releases/tag/nightly-release). They use the
+`me.magnum.melondualds.nightly` package, so they install alongside the regular app.
+
+## On-screen controls
+*  **8-way D-pad**: a round D-pad where the diagonals press two directions at once
+*  **Turbo A/B/X/Y**: separate turbo buttons, marked with an amber outline
+*  **Multi-button combos**: pick "Multi-button…" in the layout editor, choose two buttons, and get one button that
+   presses both together
+*  **Fast Forward 1–3**: up to three fast-forward buttons, each with its own speed (set in General settings)
+*  **Menu button**: opens the pause menu
+*  Individual A/B/X/Y buttons can now be placed alongside the ABXY cluster
+
+## Screenshots and gameplay recording
+*  New **Screenshot**, **Record** and **Save clip** buttons. Record turns red while recording. All three can also be
+   mapped to controller keys
+*  Screenshots can be upscaled up to 8x
+*  Recordings save the game's screens and audio as MP4. They capture the game itself, not your phone's screen
+*  **Save clip** saves the last 30 seconds of gameplay (the length can be changed), like an instant replay
+*  You can choose to capture both screens, only the top screen or only the bottom screen
+*  Recordings always play back at normal speed, even if you fast-forwarded while recording. The audio stays at full
+   volume even when the game is muted or turned down
+*  Settings are in Input settings under "Screenshots and recording": screenshot size, recordings folder, resolution,
+   frame rate, clip length, and an option to delete recordings left unfinished by a crash or interruption
+*  If you press a capture button before choosing a folder, the app asks you to pick one
+
+## Save states
+*  **Rolling quick saves**: keep 2–10 quick saves instead of one. Each new quick save replaces the oldest, quick load
+   loads the newest, and all of them are listed in the Load state menu
+*  **Autosave slot**: saves automatically every 1–60 minutes of play. Time spent paused doesn't count
+*  Both are off by default and live in Save files settings
+
+## Normal-speed music during fast-forward
+*  The music keeps playing at normal speed while the game is fast-forwarded, instead of speeding up
+*  Optionally, sound effects can still play during fast-forward while the music stays at normal speed
+*  Settings are in Audio settings: "Normal-speed music on Fast Forward" and "Allow sound effects during Fast Forward
+   music"
+*  Works with the two most common DS sound engines and picks the right one automatically:
+   *  Nintendo's standard sound format, used by most DS games (e.g. Pokémon Diamond/Pearl, HeartGold/SoulSilver,
+      Black/White)
+   *  Procyon's sound engine, used by games such as Pokémon Mystery Dungeon: Explorers of Time/Darkness/Sky,
+      Professor Layton 2–4 and Inazuma Eleven. Vibrato, pitch sweeps and fine tuning aren't reproduced yet
+*  In games that use other sound engines, no music is found, so fast-forward is silent. If sound effects are allowed,
+   you hear the usual sped-up game audio instead
+
 # Missing Features
 *  Local Multiplayer
 *  DSi SD card support
