@@ -1,4 +1,5 @@
 #include "FastForwardMusic.h"
+#include "FastForwardMusicDse.h"
 #include "MelonDS.h"
 #include "NDS.h"
 #include "SPU.h"
@@ -2514,6 +2515,10 @@ void onRomLoaded(const melonDS::u8* rom, melonDS::u32 romLength) noexcept
         melonDS::Platform::LogLevel::Info,
         "FastForwardMusic: indexed %zu SDAT archive(s) in ROM\n",
         sdatArchives.size());
+
+    // Games using the DSE sound engine (Pokemon Mystery Dungeon, Professor Layton 2-4, ...)
+    // are detected from their smdl/swdl files and handled by FastForwardMusicDse.
+    Dse::onRomLoaded(rom, romLength);
 }
 
 void onRomRead(melonDS::u32 addr, melonDS::u32 len) noexcept
@@ -2552,6 +2557,20 @@ void onRomRead(melonDS::u32 addr, melonDS::u32 len) noexcept
 
 void onEmulatorFrame(melonDS::NDS& nds) noexcept
 {
+    if (!normalSpeedMusicEnabled.load(std::memory_order_relaxed))
+    {
+        // Don't spend time scanning memory while the option is off.
+        if (activeBgmSongKey != 0)
+            deactivateCurrentSong();
+        wramTrackSlots.clear();
+        Dse::disable();
+        return;
+    }
+
+    Dse::onEmulatorFrame(nds, MelonDSAndroid::isFastForwardActive());
+    if (sdatArchives.empty() && Dse::isDseGame())
+        return;
+
     ++emulatorFrameCounter;
     if ((emulatorFrameCounter & 1u) != 0)
         return;
@@ -2933,6 +2952,7 @@ void onEmulatorFrame(melonDS::NDS& nds) noexcept
 
 void onReset() noexcept
 {
+    Dse::onReset();
     wramTrackSlots.clear();
     activeBgmSongKey = 0;
     activeBgmMainRamBase = 0;
@@ -2947,6 +2967,7 @@ void onReset() noexcept
 void onStateLoaded(melonDS::NDS& nds) noexcept
 {
     (void)nds;
+    Dse::onStateLoaded();
     wramTrackSlots.clear();
     activeBgmSongKey = 0;
     activeBgmMainRamBase = 0;
@@ -2961,6 +2982,7 @@ void onStateLoaded(melonDS::NDS& nds) noexcept
 void onShutdown() noexcept
 {
     onReset();
+    Dse::onShutdown();
     currentRomPtr = nullptr;
     currentRomLength = 0;
     sdatArchives.clear();
@@ -2976,10 +2998,11 @@ void onSpuChannelStart(
     melonDS::u32 length,
     const melonDS::u32* fifo) noexcept
 {
-    (void)srcAddr;
     (void)timerReload;
     if (channelNum >= 16 || !fifo)
         return;
+
+    Dse::onSpuChannelStart(channelNum, srcAddr, loopPos, length);
 
     SpuChannelStartInfo info {};
     info.format = static_cast<u8>((cnt >> 29) & 0x3u);
@@ -3015,7 +3038,8 @@ void filterSpuSpeakerOutput(
         return;
     }
 
-    if (!hasActiveBgmForSpuFilter.load(std::memory_order_relaxed))
+    const bool dseBgmActive = Dse::hasActiveSongForSpuFilter();
+    if (!hasActiveBgmForSpuFilter.load(std::memory_order_relaxed) && !dseBgmActive)
     {
         // No BGM active; let all SFX play through
         return;
@@ -3032,7 +3056,7 @@ void filterSpuSpeakerOutput(
     s32 sfxRight = 0;
     for (int i = 0; i < 16; ++i)
     {
-        if (channelIsBgm[i].load(std::memory_order_relaxed))
+        if (channelIsBgm[i].load(std::memory_order_relaxed) || (dseBgmActive && Dse::isBgmChannel(i)))
             continue;
         if (i == 1 && (spuCnt & (1u << 12)))
             continue;
@@ -3071,6 +3095,7 @@ bool processAudioOutput(
 
     if (!fastForwardActive)
     {
+        Dse::advanceSilentFrames(numFrames);
         std::lock_guard<std::mutex> lock(synthMutex);
         synthesizer.advanceSilentFrames(numFrames);
         return false;
@@ -3081,6 +3106,9 @@ bool processAudioOutput(
     {
         std::fill_n(audioData, numFrames * 2, 0);
     }
+
+    if (Dse::renderIfActive(audioData, numFrames, allowSfx))
+        return true;
 
     std::lock_guard<std::mutex> lock(synthMutex);
     if (synthesizer.hasActiveSong())
